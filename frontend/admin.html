@@ -28,6 +28,8 @@
     }
 
     html { scroll-behavior: smooth; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #ifrs-dropzone.dz-over { border-color: var(--accent); background: rgba(59,130,246,.04); }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: var(--bg);
@@ -821,17 +823,40 @@
           <button class="btn btn-ghost btn-sm" onclick="loadIFRS()">↻ 새로고침</button>
         </div>
         <div class="card-body">
-          <div class="fg-row" style="gap:12px;align-items:flex-end;margin-bottom:16px">
-            <div class="fg">
-              <label>기준서명 (예: IFRS 15)</label>
-              <input id="ifrs-std-name" type="text" class="inp" placeholder="IFRS 15">
-            </div>
-            <div class="fg">
-              <label>PDF 파일</label>
-              <input id="ifrs-file" type="file" accept=".pdf" class="inp">
-            </div>
-            <button class="btn btn-primary" onclick="uploadIFRS()">업로드</button>
+
+          <!-- 드롭존 -->
+          <div id="ifrs-dropzone" onclick="document.getElementById('ifrs-file').click()"
+               ondragover="event.preventDefault();this.classList.add('dz-over')"
+               ondragleave="this.classList.remove('dz-over')"
+               ondrop="ifrsDrop(event)"
+               style="border:2px dashed var(--border);border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:14px">
+            <div style="font-size:2rem;margin-bottom:6px">📄</div>
+            <div style="font-size:.875rem;font-weight:600;color:var(--txt-2)" id="ifrs-dz-main">PDF 파일을 드래그하거나 클릭하여 선택</div>
+            <div style="font-size:.76rem;color:var(--txt-3);margin-top:4px" id="ifrs-dz-sub">최대 50MB · PDF만 허용</div>
           </div>
+          <input id="ifrs-file" type="file" accept=".pdf" style="display:none" onchange="ifrsFileChange(this)">
+
+          <div class="fg-row" style="gap:12px;align-items:flex-end;margin-bottom:14px">
+            <div class="fg">
+              <label>기준서명 <span style="color:var(--txt-3);font-size:.78rem">(예: K-IFRS 제1115호)</span></label>
+              <input id="ifrs-std-name" type="text" class="inp" placeholder="K-IFRS 제1115호">
+            </div>
+            <button class="btn btn-primary" id="ifrs-upload-btn" onclick="uploadIFRS()" style="flex-shrink:0">업로드 &amp; 임베딩</button>
+          </div>
+
+          <!-- 진행 상황 -->
+          <div id="ifrs-progress-box" style="display:none;margin-bottom:14px;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:16px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <div id="ifrs-prog-spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></div>
+              <span id="ifrs-prog-label" style="font-size:.875rem;color:var(--txt-2)">준비 중…</span>
+            </div>
+            <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+              <div id="ifrs-prog-bar" style="height:100%;background:var(--accent);border-radius:4px;width:0%;transition:width .4s ease"></div>
+            </div>
+            <div id="ifrs-prog-step" style="font-size:.76rem;color:var(--txt-3);margin-top:6px"></div>
+          </div>
+
+          <!-- 결과 메시지 -->
           <div id="ifrs-upload-msg" style="margin-bottom:8px"></div>
           <table class="dtbl">
             <thead>
@@ -895,25 +920,99 @@
     }
   }
 
+  function ifrsDrop(e) {
+    e.preventDefault();
+    document.getElementById('ifrs-dropzone').classList.remove('dz-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') ifrsSetFile(f);
+  }
+
+  function ifrsFileChange(input) {
+    if (input.files[0]) ifrsSetFile(input.files[0]);
+  }
+
+  function ifrsSetFile(file) {
+    document.getElementById('ifrs-dz-main').textContent = file.name;
+    document.getElementById('ifrs-dz-sub').textContent = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+    document.getElementById('ifrs-dropzone').style.borderColor = 'var(--green)';
+  }
+
+  function ifrsSetProgress(pct, label, step) {
+    document.getElementById('ifrs-prog-bar').style.width = pct + '%';
+    document.getElementById('ifrs-prog-label').textContent = label;
+    document.getElementById('ifrs-prog-step').textContent = step || '';
+  }
+
   async function uploadIFRS() {
     const stdName = document.getElementById('ifrs-std-name').value.trim();
     const fileInput = document.getElementById('ifrs-file');
     const msg = document.getElementById('ifrs-upload-msg');
-    if (!stdName || !fileInput.files.length) {
-      msg.textContent = '기준서명과 파일을 모두 입력하세요.';
-      return;
-    }
+    const progBox = document.getElementById('ifrs-progress-box');
+    const btn = document.getElementById('ifrs-upload-btn');
+
+    if (!stdName) { msg.innerHTML = '<span style="color:var(--red)">기준서명을 입력하세요.</span>'; return; }
+    if (!fileInput.files.length) { msg.innerHTML = '<span style="color:var(--red)">PDF 파일을 선택하세요.</span>'; return; }
+
+    const file = fileInput.files[0];
     const form = new FormData();
     form.append('standard_name', stdName);
-    form.append('file', fileInput.files[0]);
-    msg.textContent = '업로드 중…';
+    form.append('file', file);
+
+    btn.disabled = true;
+    msg.innerHTML = '';
+    progBox.style.display = 'block';
+    document.getElementById('ifrs-prog-spinner').style.display = 'block';
+
+    // 단계별 진행 시뮬레이션 (실제 완료 전까지)
+    ifrsSetProgress(10, 'PDF 업로드 중…', `파일: ${file.name}`);
+    const stages = [
+      { pct: 25, label: 'PDF 텍스트 추출 중…',   delay: 800  },
+      { pct: 45, label: '청크 분할 중…',           delay: 1200 },
+      { pct: 60, label: '임베딩 생성 중… (시간이 걸릴 수 있습니다)', delay: 1500 },
+      { pct: 80, label: '임베딩 생성 중…',         delay: 2000 },
+    ];
+
+    let stageIdx = 0;
+    const stageTimer = setInterval(() => {
+      if (stageIdx < stages.length) {
+        const s = stages[stageIdx++];
+        ifrsSetProgress(s.pct, s.label, '');
+      } else {
+        clearInterval(stageTimer);
+      }
+    }, stages[stageIdx]?.delay ?? 1000);
+
     try {
       const r = await fetch(`${API}/ifrs/upload`, { method: 'POST', body: form });
-      const data = await r.json();
-      msg.textContent = r.ok ? data.message : `오류: ${data.detail}`;
-      if (r.ok) { fileInput.value = ''; loadIFRS(); }
+      clearInterval(stageTimer);
+
+      if (r.ok) {
+        const data = await r.json();
+        const chunks = data.chunks ?? '?';
+        ifrsSetProgress(100, '완료!', '');
+        document.getElementById('ifrs-prog-spinner').style.animation = 'none';
+        document.getElementById('ifrs-prog-spinner').style.borderTopColor = 'var(--green)';
+        document.getElementById('ifrs-prog-bar').style.background = 'var(--green)';
+        msg.innerHTML = `<span style="color:var(--green)">✓ 업로드 완료 — ${stdName} · ${chunks}개 청크 생성됨</span>`;
+        fileInput.value = '';
+        document.getElementById('ifrs-dz-main').textContent = 'PDF 파일을 드래그하거나 클릭하여 선택';
+        document.getElementById('ifrs-dz-sub').textContent = '최대 50MB · PDF만 허용';
+        document.getElementById('ifrs-dropzone').style.borderColor = 'var(--border)';
+        setTimeout(() => { progBox.style.display = 'none'; }, 3000);
+        loadIFRS();
+      } else {
+        const data = await r.json().catch(() => ({}));
+        clearInterval(stageTimer);
+        ifrsSetProgress(0, '오류 발생', '');
+        document.getElementById('ifrs-prog-spinner').style.borderTopColor = 'var(--red)';
+        msg.innerHTML = `<span style="color:var(--red)">업로드 실패: ${data.detail || r.status}</span>`;
+      }
     } catch (e) {
-      msg.textContent = '업로드 실패';
+      clearInterval(stageTimer);
+      ifrsSetProgress(0, '연결 오류', '');
+      msg.innerHTML = `<span style="color:var(--red)">연결 오류: ${e.message}</span>`;
+    } finally {
+      btn.disabled = false;
     }
   }
 
