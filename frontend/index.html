@@ -1094,15 +1094,29 @@
     const tableHtml = (!isIfrs && discs.length > 0) ? buildDiscTable(discs) : '';
     setContent(answerHtml + tableHtml);
 
-    if (isIfrs && data.ifrs_references && data.ifrs_references.length > 0) {
-      renderIFRSPanel(data.ifrs_references);
-    } else if (isIfrs) {
-      document.getElementById('ifrs-refs').innerHTML =
-        '<div class="ifrs-refs-empty">관련 기준서 조문을<br>찾지 못했습니다.</div>';
-      openPanel();
+    if (isIfrs) {
+      if (data.ifrs_sources && data.ifrs_sources.length > 0) {
+        renderIFRSSourcePanel(data.ifrs_sources);
+      } else if (data.ifrs_references && data.ifrs_references.length > 0) {
+        renderIFRSPanel(data.ifrs_references);
+      } else {
+        document.getElementById('ifrs-refs').innerHTML =
+          '<div class="ifrs-refs-empty">관련 기준서 조문을<br>찾지 못했습니다.</div>';
+        openPanel();
+      }
     } else {
       closePanel();
     }
+  }
+
+  function renderIFRSSourcePanel(sources) {
+    const html = sources.map(s => `
+      <div class="ifrs-ref-card">
+        <div class="ifrs-ref-tag">${esc(s.standard_name)} · 유사도 ${(s.similarity * 100).toFixed(1)}%</div>
+        <div class="ifrs-ref-summary" style="white-space:pre-wrap">${esc(s.chunk_text)}</div>
+      </div>`).join('');
+    document.getElementById('ifrs-refs').innerHTML = html;
+    openPanel();
   }
 
   function renderIFRSPanel(refs) {

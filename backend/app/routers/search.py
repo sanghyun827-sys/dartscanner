@@ -128,6 +128,14 @@ async def _ifrs_search(req: SearchRequest, gemini: GeminiService, db: AsyncSessi
     return {
         "answer": answer_text,
         "ifrs_references": _extract_ifrs_refs(answer_text),
+        "ifrs_sources": [
+            {
+                "standard_name": r.standard_name,
+                "chunk_text": r.chunk_text,
+                "similarity": round(float(r.similarity), 4),
+            }
+            for r in chunks
+        ],
         "disclosures": [],
     }
 
