@@ -1110,11 +1110,15 @@
   }
 
   function renderIFRSSourcePanel(sources) {
-    const html = sources.map(s => `
+    const html = sources.map(s => {
+      // 단일 \n(PDF 줄바꿈)은 공백으로, \n\n(문단 구분)은 줄바꿈 유지
+      const txt = esc(s.chunk_text.replace(/\n{2,}/g, '\n').replace(/\n/g, ' ').trim());
+      return `
       <div class="ifrs-ref-card">
         <div class="ifrs-ref-tag">${esc(s.standard_name)} · 유사도 ${(s.similarity * 100).toFixed(1)}%</div>
-        <div class="ifrs-ref-summary" style="white-space:pre-wrap">${esc(s.chunk_text)}</div>
-      </div>`).join('');
+        <div class="ifrs-ref-summary">${txt}</div>
+      </div>`;
+    }).join('');
     document.getElementById('ifrs-refs').innerHTML = html;
     openPanel();
   }
