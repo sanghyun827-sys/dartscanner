@@ -1141,29 +1141,33 @@
   }
 
   function showIFRSCite(ref) {
-    // 기준서 번호 추출 (1028, 32, 15, ...)
-    const nums = ref.match(/\d+/g) || [];
-    const stdNum = nums[0];
-    // 문단 번호 추출
+    const stdNums = ref.match(/\d+/g) || [];
+    const stdNum = stdNums[0];
     const paraM = ref.match(/문단\s*(\d+[A-Z]?)/i);
     const paraNum = paraM ? paraM[1] : null;
 
-    // 기준서 번호로 소스 필터
-    let matched = _ifrsSources.filter(s =>
+    let pool = _ifrsSources.filter(s =>
       s.standard_name.replace(/\D/g, '').includes(stdNum)
     );
-    if (!matched.length) matched = _ifrsSources;
+    if (!pool.length) pool = _ifrsSources;
 
-    // 문단 번호로 우선순위 정렬
     if (paraNum) {
-      matched = [...matched].sort((a, b) => {
-        const aHas = a.chunk_text.includes(paraNum + '.') || a.chunk_text.startsWith(paraNum);
-        const bHas = b.chunk_text.includes(paraNum + '.') || b.chunk_text.startsWith(paraNum);
-        return (bHas ? 1 : 0) - (aHas ? 1 : 0);
+      // 클릭한 문단 번호로 시작하는 청크 하나만 표시
+      const exact = pool.find(s => {
+        const t = s.chunk_text.trim();
+        const m = t.match(/^(\d+[A-Z]?)\.\s/);
+        return m && m[1] === paraNum;
       });
+      if (exact) {
+        renderIFRSSourcePanel([exact], ref);
+      } else {
+        document.getElementById('ifrs-refs').innerHTML =
+          `<div class="ifrs-refs-empty" style="font-size:.8rem"><b>${esc(ref)}</b><br>해당 조문이 검색 결과에<br>포함되지 않았습니다.</div>`;
+        openPanel();
+      }
+    } else {
+      renderIFRSSourcePanel(pool.slice(0, 1), ref);
     }
-
-    renderIFRSSourcePanel(matched.slice(0, 3), ref);
   }
 
   function renderIFRSSourcePanel(sources, activeRef) {
