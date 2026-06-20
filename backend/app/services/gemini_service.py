@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class GeminiService:
     def __init__(self, api_key: str, chat_model: str = "gemini-2.0-flash", embedding_model: str = "text-embedding-004"):
-        self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(api_key=api_key, http_options={"api_version": "v1"})
         self.chat_model_name = chat_model
         self.embedding_model_name = embedding_model.replace("models/", "")
 
