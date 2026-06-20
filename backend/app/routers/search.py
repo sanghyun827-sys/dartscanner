@@ -28,6 +28,33 @@ class SearchRequest(BaseModel):
     debate_mode: bool = False
 
 
+@router.get("/ifrs/paragraph")
+async def get_ifrs_paragraph(std_num: str, para_num: str, db: AsyncSession = Depends(get_db)):
+    """기준서 번호 + 문단 번호로 특정 조문 청크 조회"""
+    from sqlalchemy import text as sql_text
+    result = await db.execute(
+        sql_text("""
+            SELECT standard_name, chunk_text
+            FROM ifrs_chunks
+            WHERE REGEXP_REPLACE(standard_name, '[^0-9]', '', 'g') LIKE :std
+              AND chunk_text ~ :para_pat
+            LIMIT 1
+        """),
+        {
+            "std": f"%{std_num}%",
+            "para_pat": f"^{para_num}[A-Z]?\\.\\s",
+        },
+    )
+    row = result.fetchone()
+    if not row:
+        return {"found": False}
+    return {
+        "found": True,
+        "standard_name": row.standard_name,
+        "chunk_text": row.chunk_text,
+    }
+
+
 @router.post("/search")
 async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     gemini = GeminiService(cfg.gemini_api_key, cfg.gemini_model, cfg.embedding_model)
