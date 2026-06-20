@@ -20,7 +20,7 @@ class IFRSService:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             pages = [page.extract_text() or "" for page in pdf.pages]
-        return "\n\n".join(p for p in pages if p.strip())
+        return "\n".join(p for p in pages if p.strip())
 
     async def embed_and_store(
         self,

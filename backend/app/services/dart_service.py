@@ -699,6 +699,22 @@ def _split_into_sections(md: str, source_file: str, doc_title: str) -> list[Pars
 _SENTENCE_END = re.compile(r"(?<=[.!?。？！])\s+|(?<=다\.)\s+|(?<=요\.)\s+")
 
 
+def _sentence_boundary_tail(text: str, overlap: int) -> str:
+    """오버랩 꼬리를 문장 시작점에서 잘라 반환. 문장 경계를 찾지 못하면 공백 경계 사용."""
+    if len(text) <= overlap:
+        return text
+    tail_start = len(text) - overlap
+    # tail_start 이후 첫 문장 시작점 탐색
+    m = re.search(r"(?<=[.!?。？！다요]\.?)\s+", text[tail_start:])
+    if m:
+        return text[tail_start + m.end():]
+    # 문장 경계 없으면 다음 공백부터
+    sp = text.find(" ", tail_start)
+    if 0 < sp < len(text) - 1:
+        return text[sp + 1:]
+    return text[tail_start:]
+
+
 def _semantic_split(text: str, max_size: int, overlap: int) -> list[str]:
     """
     1차: 이중 개행(문단) 기준 분리
@@ -736,11 +752,11 @@ def _semantic_split(text: str, max_size: int, overlap: int) -> list[str]:
     if buf.strip():
         chunks.append(buf.strip())
 
-    # 오버랩 추가
+    # 오버랩 추가 (문장 경계에서 시작)
     if overlap > 0 and len(chunks) > 1:
         overlapped: list[str] = [chunks[0]]
         for i in range(1, len(chunks)):
-            tail = chunks[i - 1][-overlap:]
+            tail = _sentence_boundary_tail(chunks[i - 1], overlap)
             overlapped.append(tail + "\n\n" + chunks[i])
         return overlapped
 
