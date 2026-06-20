@@ -1,40 +1,49 @@
 import logging
-import httpx
 from google import genai
+import google.generativeai as genai_v1
 
 logger = logging.getLogger(__name__)
 
-_EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent"
-
 
 class GeminiService:
-    def __init__(self, api_key: str, chat_model: str = "gemini-2.0-flash", embedding_model: str = "text-embedding-004"):
+    def __init__(self, api_key: str, chat_model: str = "gemini-2.0-flash", embedding_model: str = "models/gemini-embedding-001"):
         self._api_key = api_key
+        # 채팅: 신 SDK (google-genai)
         self._client = genai.Client(api_key=api_key, http_options={"api_version": "v1"})
         self.chat_model_name = chat_model
-        self.embedding_model_name = embedding_model.replace("models/", "")
-
-    async def _embed(self, text: str, task_type: str) -> list[float]:
-        url = _EMBED_URL.format(model=self.embedding_model_name)
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                url,
-                params={"key": self._api_key},
-                json={
-                    "model": f"models/{self.embedding_model_name}",
-                    "content": {"parts": [{"text": text}]},
-                    "taskType": task_type,
-                    "outputDimensionality": 768,
-                },
-            )
-            resp.raise_for_status()
-            return resp.json()["embedding"]["values"]
+        # 임베딩: 구 SDK (google-generativeai) — v1 방식 그대로
+        genai_v1.configure(api_key=api_key)
+        self.embedding_model_name = embedding_model
 
     async def embed_document(self, text: str) -> list[float]:
-        return await self._embed(text[:8000], "RETRIEVAL_DOCUMENT")
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: genai_v1.embed_content(
+                model=self.embedding_model_name,
+                content=text[:8000],
+                task_type="retrieval_document",
+                output_dimensionality=768,
+                request_options={"timeout": 60},
+            ),
+        )
+        return result["embedding"]
 
     async def embed_query(self, text: str) -> list[float]:
-        return await self._embed(text[:2000], "RETRIEVAL_QUERY")
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: genai_v1.embed_content(
+                model=self.embedding_model_name,
+                content=text[:2000],
+                task_type="retrieval_query",
+                output_dimensionality=768,
+                request_options={"timeout": 60},
+            ),
+        )
+        return result["embedding"]
 
     async def generate(self, prompt: str) -> str:
         response = await self._client.aio.models.generate_content(
