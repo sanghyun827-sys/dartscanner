@@ -5,7 +5,6 @@ debate_mode: True → 반박 분석
 """
 
 import re
-import asyncio
 import logging
 from typing import Optional
 
@@ -122,8 +121,7 @@ async def _ifrs_search(req: SearchRequest, gemini: GeminiService, db: AsyncSessi
 - IFRS/IAS 기준서 및 조문 번호를 인용하세요
 - 한국어로 답변하세요"""
 
-    response = await asyncio.to_thread(gemini._chat_model.generate_content, prompt)
-    answer_text = response.text
+    answer_text = await gemini.generate(prompt)
 
     return {
         "answer": answer_text,
@@ -151,8 +149,7 @@ async def _ifrs_llm_fallback(req: SearchRequest, gemini: GeminiService) -> dict:
 2. 관련 IFRS/IAS 기준서 및 주요 조문 번호
 3. 실무 적용 시 주의사항"""
 
-    response = await asyncio.to_thread(gemini._chat_model.generate_content, prompt)
-    answer_text = response.text
+    answer_text = await gemini.generate(prompt)
 
     return {
         "answer": answer_text,

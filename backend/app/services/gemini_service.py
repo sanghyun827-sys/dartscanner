@@ -1,64 +1,40 @@
-import asyncio
 import logging
-from typing import Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiService:
-    def __init__(self, api_key: str, chat_model: str = "gemini-2.0-flash", embedding_model: str = "models/text-embedding-004"):
-        genai.configure(api_key=api_key)
+    def __init__(self, api_key: str, chat_model: str = "gemini-2.0-flash", embedding_model: str = "text-embedding-004"):
+        self._client = genai.Client(api_key=api_key)
         self.chat_model_name = chat_model
-        self.embedding_model_name = embedding_model
-        self._chat_model = genai.GenerativeModel(chat_model)
+        self.embedding_model_name = embedding_model.replace("models/", "")
 
     async def embed_document(self, text: str) -> list[float]:
-        """문서 임베딩 (retrieval_document)"""
-        return await asyncio.to_thread(
-            self._embed_sync,
-            text[:8000],
-            "retrieval_document",
+        result = await self._client.aio.models.embed_content(
+            model=self.embedding_model_name,
+            contents=text[:8000],
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
         )
+        return result.embeddings[0].values
 
     async def embed_query(self, text: str) -> list[float]:
-        """쿼리 임베딩 (retrieval_query)"""
-        return await asyncio.to_thread(
-            self._embed_sync,
-            text[:2000],
-            "retrieval_query",
-        )
-
-    def _embed_sync(self, text: str, task_type: str) -> list[float]:
-        result = genai.embed_content(
+        result = await self._client.aio.models.embed_content(
             model=self.embedding_model_name,
-            content=text,
-            task_type=task_type,
+            contents=text[:2000],
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
         )
-        return result["embedding"]
+        return result.embeddings[0].values
 
-    async def generate_debate(self, question: str, context_chunks: list[dict]) -> str:
-        """반박/비판적 시각으로 분석"""
-        ctx = "\n\n".join([c["chunk_text"] for c in context_chunks[:5]])
-        prompt = f"""공시 데이터를 비판적으로 분석하는 전문가입니다.
-아래 질문과 관련 공시 자료를 바탕으로 **반박 시각**에서 분석하세요.
-
-## 관련 공시 자료
-{ctx}
-
-## 분석 질문
-{question}
-
-## 반박 분석 지침
-- 낙관적 해석에 의문을 제기하세요
-- 공시에서 누락되거나 모호한 부분을 지적하세요
-- 투자자가 주의해야 할 리스크를 강조하세요
-- 한국어로 답변하세요"""
-        response = await asyncio.to_thread(self._chat_model.generate_content, prompt)
+    async def generate(self, prompt: str) -> str:
+        response = await self._client.aio.models.generate_content(
+            model=self.chat_model_name,
+            contents=prompt,
+        )
         return response.text
 
     async def generate_answer(self, question: str, context_chunks: list[dict]) -> str:
-        """RAG 기반 한국어 답변 생성"""
         ctx_parts = []
         for i, c in enumerate(context_chunks, 1):
             section_info = f" | 섹션: {c['section']}" if c.get("section") else ""
@@ -84,8 +60,22 @@ class GeminiService:
 - 수치·날짜를 인용할 때는 해당 출처 번호를 [1], [2] 형식으로 표시하세요.
 - 답변은 명확하고 구조적으로 작성하세요.
 """
-        response = await asyncio.to_thread(
-            self._chat_model.generate_content,
-            prompt,
-        )
-        return response.text
+        return await self.generate(prompt)
+
+    async def generate_debate(self, question: str, context_chunks: list[dict]) -> str:
+        ctx = "\n\n".join([c["chunk_text"] for c in context_chunks[:5]])
+        prompt = f"""공시 데이터를 비판적으로 분석하는 전문가입니다.
+아래 질문과 관련 공시 자료를 바탕으로 **반박 시각**에서 분석하세요.
+
+## 관련 공시 자료
+{ctx}
+
+## 분석 질문
+{question}
+
+## 반박 분석 지침
+- 낙관적 해석에 의문을 제기하세요
+- 공시에서 누락되거나 모호한 부분을 지적하세요
+- 투자자가 주의해야 할 리스크를 강조하세요
+- 한국어로 답변하세요"""
+        return await self.generate(prompt)
