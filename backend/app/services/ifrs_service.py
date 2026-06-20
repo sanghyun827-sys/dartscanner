@@ -13,8 +13,10 @@ from ..models.models import IFRSChunk
 logger = logging.getLogger(__name__)
 
 # IFRS 조문 번호 패턴: 12. / 12A. / IN1. / AG3. / BCZ4. / IE2. / B1. 등
+# - 1~3자리 숫자만 허용 (4자리는 기준서 번호·연도일 가능성 높음)
+# - 마침표 뒤에 반드시 공백이 있어야 함 (소수·약어 제외)
 _PARA_NUM = re.compile(
-    r"^(?:IN|AG|BC|BCZ|IE|IG|B|C|D|E|F)?\d+[A-Z]?\.",
+    r"^(?:IN|AG|BC|BCZ|IE|IG|B|C|D|E|F)?\d{1,3}[A-Z]?\.\s",
     re.MULTILINE,
 )
 
