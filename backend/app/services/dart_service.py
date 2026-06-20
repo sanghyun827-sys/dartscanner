@@ -161,6 +161,8 @@ class DartService:
                             doc.source_files.append(fname)
                             if not doc.title:
                                 doc.title = _infer_title(sections)
+                    except Exception as e:
+                        logger.debug(f"File parse error ({fname}): {e}")
         except zipfile.BadZipFile:
             logger.error("Invalid ZIP")
         return doc
