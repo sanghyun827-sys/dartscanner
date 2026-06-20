@@ -34,7 +34,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     gemini = GeminiService(cfg.gemini_api_key, cfg.gemini_model, cfg.embedding_model)
 
     if req.mode == "ifrs":
-        return await _ifrs_search(req, gemini)
+        return await _ifrs_search(req, gemini, db)
 
     return await _dart_search(req, gemini, db)
 
@@ -83,10 +83,56 @@ async def _dart_search(req: SearchRequest, gemini: GeminiService, db: AsyncSessi
 
 
 # ══════════════════════════════════════════════
-# IFRS 모드 — LLM 지식 기반
+# IFRS 모드 — RAG (기준서 임베딩 우선, fallback LLM)
 # ══════════════════════════════════════════════
 
-async def _ifrs_search(req: SearchRequest, gemini: GeminiService) -> dict:
+async def _ifrs_search(req: SearchRequest, gemini: GeminiService, db: AsyncSession) -> dict:
+    from sqlalchemy import text as sql_text
+
+    embedding = await gemini.embed_query(req.query)
+    vec_str = "[" + ",".join(f"{v:.8f}" for v in embedding) + "]"
+
+    result = await db.execute(
+        sql_text("""
+            SELECT standard_name, chunk_text,
+                   1 - (embedding <=> :vec::vector) AS similarity
+            FROM ifrs_chunks
+            ORDER BY embedding <=> :vec::vector
+            LIMIT :k
+        """),
+        {"vec": vec_str, "k": req.top_k},
+    )
+    chunks = result.fetchall()
+
+    if not chunks:
+        return await _ifrs_llm_fallback(req, gemini)
+
+    ctx = "\n\n".join(f"[{r.standard_name}]\n{r.chunk_text}" for r in chunks)
+    prompt = f"""당신은 IFRS(국제회계기준) 전문가입니다.
+아래 기준서 내용을 바탕으로 질문에 한국어로 상세히 답변하세요.
+
+## 관련 기준서 내용
+{ctx}
+
+## 질문
+{req.query}
+
+## 답변 지침
+- 반드시 제공된 기준서 내용에 근거하여 답변하세요
+- IFRS/IAS 기준서 및 조문 번호를 인용하세요
+- 한국어로 답변하세요"""
+
+    response = await asyncio.to_thread(gemini._chat_model.generate_content, prompt)
+    answer_text = response.text
+
+    return {
+        "answer": answer_text,
+        "ifrs_references": _extract_ifrs_refs(answer_text),
+        "disclosures": [],
+    }
+
+
+async def _ifrs_llm_fallback(req: SearchRequest, gemini: GeminiService) -> dict:
     prompt = f"""당신은 IFRS(국제회계기준) 전문가입니다.
 아래 질문에 한국어로 상세히 답변하고, 관련 IFRS/IAS 기준서 조문을 구체적으로 인용하세요.
 

@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func as sa_func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -321,3 +321,52 @@ def _apply_scheduler(s: dict):
 
 
 import asyncio  # noqa: E402 (needed for _apply_scheduler)
+
+
+# ══════════════════════════════════════════════
+# IFRS 기준서
+# ══════════════════════════════════════════════
+
+@router.post("/ifrs/upload")
+async def upload_ifrs(
+    standard_name: str = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "PDF 파일만 업로드 가능합니다")
+    pdf_bytes = await file.read()
+    from ..services.gemini_service import GeminiService
+    from ..services.ifrs_service import IFRSService
+    gemini = GeminiService(cfg.gemini_api_key, cfg.gemini_model, cfg.embedding_model)
+    service = IFRSService(gemini)
+    try:
+        count = await service.embed_and_store(db, standard_name, file.filename, pdf_bytes)
+        return {"message": f"{count}개 청크 임베딩 완료", "standard_name": standard_name, "chunk_count": count}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/ifrs/standards")
+async def list_ifrs_standards(db: AsyncSession = Depends(get_db)):
+    from ..models.models import IFRSChunk
+    result = await db.execute(
+        select(
+            IFRSChunk.standard_name,
+            IFRSChunk.filename,
+            sa_func.count(IFRSChunk.id).label("chunk_count"),
+        )
+        .group_by(IFRSChunk.standard_name, IFRSChunk.filename)
+        .order_by(IFRSChunk.standard_name)
+    )
+    return [
+        {"standard_name": r.standard_name, "filename": r.filename, "chunk_count": r.chunk_count}
+        for r in result.all()
+    ]
+
+
+@router.delete("/ifrs/standards/{filename:path}")
+async def delete_ifrs_standard(filename: str, db: AsyncSession = Depends(get_db)):
+    await db.execute(text("DELETE FROM ifrs_chunks WHERE filename = :f"), {"f": filename})
+    await db.commit()
+    return {"message": "삭제됐습니다"}

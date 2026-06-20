@@ -49,3 +49,15 @@ class DocumentChunk(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     disclosure = relationship("Disclosure", back_populates="chunks")
+
+
+class IFRSChunk(Base):
+    __tablename__ = "ifrs_chunks"
+
+    id = Column(Integer, primary_key=True)
+    standard_name = Column(String(50), nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    chunk_index = Column(Integer)
+    embedding = Column(Vector(settings.embedding_dim))
+    created_at = Column(DateTime, default=datetime.utcnow)

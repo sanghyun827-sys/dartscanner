@@ -813,6 +813,38 @@
       </div>
     </section>
 
+    <!-- ── IFRS 기준서 관리 ──────────────────────────────── -->
+    <section>
+      <div class="card">
+        <div class="card-head">
+          <h3>IFRS 기준서 관리</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadIFRS()">↻ 새로고침</button>
+        </div>
+        <div class="card-body">
+          <div class="fg-row" style="gap:12px;align-items:flex-end;margin-bottom:16px">
+            <div class="fg">
+              <label>기준서명 (예: IFRS 15)</label>
+              <input id="ifrs-std-name" type="text" class="inp" placeholder="IFRS 15">
+            </div>
+            <div class="fg">
+              <label>PDF 파일</label>
+              <input id="ifrs-file" type="file" accept=".pdf" class="inp">
+            </div>
+            <button class="btn btn-primary" onclick="uploadIFRS()">업로드</button>
+          </div>
+          <div id="ifrs-upload-msg" style="margin-bottom:8px"></div>
+          <table class="dtbl">
+            <thead>
+              <tr><th>기준서명</th><th>파일명</th><th>청크 수</th><th>삭제</th></tr>
+            </thead>
+            <tbody id="ifrs-tbody">
+              <tr><td colspan="4" class="txt-c txt-m" style="padding:16px">로딩 중…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -839,6 +871,59 @@
   document.getElementById('pw-inp').addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
+
+  /* ══ IFRS ══════════════════════════════════════════════════ */
+
+  async function loadIFRS() {
+    const tbody = document.getElementById('ifrs-tbody');
+    try {
+      const r = await fetch(`${API}/ifrs/standards`);
+      const data = await r.json();
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="txt-c txt-m" style="padding:16px">업로드된 기준서가 없습니다</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(d => `
+        <tr>
+          <td>${esc(d.standard_name)}</td>
+          <td>${esc(d.filename)}</td>
+          <td>${d.chunk_count}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteIFRS('${esc(d.filename)}')">삭제</button></td>
+        </tr>`).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" class="txt-c">오류 발생</td></tr>';
+    }
+  }
+
+  async function uploadIFRS() {
+    const stdName = document.getElementById('ifrs-std-name').value.trim();
+    const fileInput = document.getElementById('ifrs-file');
+    const msg = document.getElementById('ifrs-upload-msg');
+    if (!stdName || !fileInput.files.length) {
+      msg.textContent = '기준서명과 파일을 모두 입력하세요.';
+      return;
+    }
+    const form = new FormData();
+    form.append('standard_name', stdName);
+    form.append('file', fileInput.files[0]);
+    msg.textContent = '업로드 중…';
+    try {
+      const r = await fetch(`${API}/ifrs/upload`, { method: 'POST', body: form });
+      const data = await r.json();
+      msg.textContent = r.ok ? data.message : `오류: ${data.detail}`;
+      if (r.ok) { fileInput.value = ''; loadIFRS(); }
+    } catch (e) {
+      msg.textContent = '업로드 실패';
+    }
+  }
+
+  async function deleteIFRS(filename) {
+    if (!confirm(`"${filename}" 기준서를 삭제하시겠습니까?`)) return;
+    await fetch(`${API}/ifrs/standards/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    loadIFRS();
+  }
+
+  /* ══════════════════════════════════════════════════════════ */
 
   function doLogin() {
     const val = document.getElementById('pw-inp').value;
@@ -872,6 +957,7 @@
     pollStatus();
     checkGpuVm();
     loadQuota();
+    loadIFRS();
     setInterval(loadStats,  30_000);
     setInterval(loadLogs,   10_000);
     setInterval(pollStatus,  3_000);
