@@ -304,6 +304,21 @@
     }
     .ifrs-ref-link:hover { text-decoration: underline; }
 
+    /* ── 인라인 IFRS 인용 링크 ───────────────────────────────────── */
+    .ifrs-cite {
+      color: var(--ifrs);
+      border-bottom: 1px dashed var(--ifrs-mid);
+      cursor: pointer;
+      border-radius: 2px;
+      padding: 0 1px;
+      transition: background .12s;
+    }
+    .ifrs-cite:hover { background: rgba(139,92,246,.12); }
+    .ifrs-ref-card.active {
+      border-left-color: var(--ifrs);
+      background: rgba(139,92,246,.06);
+    }
+
     /* ── Loading ─────────────────────────────────────────────────── */
     .loader {
       display: flex; align-items: center; justify-content: center;
@@ -1081,13 +1096,17 @@
       ? `<div class="answer-footer">${footerInner}</div>`
       : '';
 
+    const answerText = isIfrs && data.ifrs_sources?.length
+      ? linkifyIFRS(data.answer, data.ifrs_sources)
+      : esc(data.answer);
+
     const answerHtml = data.answer ? `
       <div class="answer-card">
         <div class="answer-label ${labelClass}">
           <span class="dot"></span>
           ${labelText}
         </div>
-        <div class="answer-text">${esc(data.answer)}</div>
+        <div class="answer-text">${answerText}</div>
         ${answerFooter}
       </div>` : '';
 
@@ -1095,26 +1114,63 @@
     setContent(answerHtml + tableHtml);
 
     if (isIfrs) {
-      if (data.ifrs_sources && data.ifrs_sources.length > 0) {
-        renderIFRSSourcePanel(data.ifrs_sources);
-      } else if (data.ifrs_references && data.ifrs_references.length > 0) {
+      _ifrsSources = data.ifrs_sources || [];
+      // 초기 상태: 패널 빈 상태로 열기 (클릭 유도)
+      if (_ifrsSources.length > 0) {
+        document.getElementById('ifrs-refs').innerHTML =
+          '<div class="ifrs-refs-empty" style="font-size:.8rem">답변의 <span style="color:var(--ifrs)">보라색 인용</span>을<br>클릭하면 해당 조문이 표시됩니다.</div>';
+        openPanel();
+      } else if (data.ifrs_references?.length > 0) {
         renderIFRSPanel(data.ifrs_references);
       } else {
-        document.getElementById('ifrs-refs').innerHTML =
-          '<div class="ifrs-refs-empty">관련 기준서 조문을<br>찾지 못했습니다.</div>';
-        openPanel();
+        closePanel();
       }
     } else {
       closePanel();
     }
   }
 
-  function renderIFRSSourcePanel(sources) {
+  // IFRS 참조 텍스트 → 클릭 가능한 인라인 링크
+  const _IFRS_RE = /(?:K-)?(?:IFRS|IAS)\s*(?:제)?\s*\d+(?:호)?(?:\s*문단\s*\d+[A-Z]?(?:-\d+[A-Z]?)?)?/gi;
+  let _ifrsSources = [];
+
+  function linkifyIFRS(text, sources) {
+    return esc(text).replace(_IFRS_RE, match =>
+      `<span class="ifrs-cite" onclick="showIFRSCite('${match.replace(/'/g, "\\'")}')" title="클릭하여 관련 조문 보기">${match}</span>`
+    );
+  }
+
+  function showIFRSCite(ref) {
+    // 기준서 번호 추출 (1028, 32, 15, ...)
+    const nums = ref.match(/\d+/g) || [];
+    const stdNum = nums[0];
+    // 문단 번호 추출
+    const paraM = ref.match(/문단\s*(\d+[A-Z]?)/i);
+    const paraNum = paraM ? paraM[1] : null;
+
+    // 기준서 번호로 소스 필터
+    let matched = _ifrsSources.filter(s =>
+      s.standard_name.replace(/\D/g, '').includes(stdNum)
+    );
+    if (!matched.length) matched = _ifrsSources;
+
+    // 문단 번호로 우선순위 정렬
+    if (paraNum) {
+      matched = [...matched].sort((a, b) => {
+        const aHas = a.chunk_text.includes(paraNum + '.') || a.chunk_text.startsWith(paraNum);
+        const bHas = b.chunk_text.includes(paraNum + '.') || b.chunk_text.startsWith(paraNum);
+        return (bHas ? 1 : 0) - (aHas ? 1 : 0);
+      });
+    }
+
+    renderIFRSSourcePanel(matched.slice(0, 3), ref);
+  }
+
+  function renderIFRSSourcePanel(sources, activeRef) {
     const html = sources.map(s => {
-      // 단일 \n(PDF 줄바꿈)은 공백으로, \n\n(문단 구분)은 줄바꿈 유지
-      const txt = esc(s.chunk_text.replace(/\n{2,}/g, '\n').replace(/\n/g, ' ').trim());
+      const txt = esc(s.chunk_text.replace(/\n/g, ' ').trim());
       return `
-      <div class="ifrs-ref-card">
+      <div class="ifrs-ref-card${activeRef ? ' active' : ''}">
         <div class="ifrs-ref-tag">${esc(s.standard_name)} · 유사도 ${(s.similarity * 100).toFixed(1)}%</div>
         <div class="ifrs-ref-summary">${txt}</div>
       </div>`;
