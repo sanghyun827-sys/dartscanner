@@ -322,7 +322,7 @@ async def _parse_phase(dart, gemini, gcs, chunk_size, chunk_overlap):
                         text("""
                             INSERT INTO document_chunks
                             (disclosure_id, rcp_no, corp_name, report_nm, chunk_text, chunk_index, embedding, meta)
-                            VALUES (:did, :rcp, :corp, :rpt, :txt, :ci, :emb::vector, :meta::jsonb)
+                            VALUES (:did, :rcp, :corp, :rpt, :txt, :ci, CAST(:emb AS vector), CAST(:meta AS jsonb))
                         """),
                         {
                             "did": disc.id,
