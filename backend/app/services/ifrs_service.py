@@ -83,7 +83,10 @@ class IFRSService:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             pages = [page.extract_text() or "" for page in pdf.pages]
-        return "\n".join(p for p in pages if p.strip())
+        text = "\n".join(p for p in pages if p.strip())
+        # PDF 소프트 줄바꿈 복원: 구두점 없이 끝나는 줄 + 다음 줄이 소문자/한글 중간으로 이어지는 경우
+        text = re.sub(r"([가-힣a-zA-Z,])\n([가-힣a-z])", r"\1\2", text)
+        return text
 
     async def embed_and_store(
         self,
