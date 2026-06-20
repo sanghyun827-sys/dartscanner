@@ -304,6 +304,13 @@
     }
     .ifrs-ref-link:hover { text-decoration: underline; }
 
+    /* ── 마크다운 렌더링 ─────────────────────────────────────────── */
+    .md-h3 { font-size: .95rem; font-weight: 700; margin: 1em 0 .3em; color: var(--text); }
+    .md-h4 { font-size: .88rem; font-weight: 600; margin: .8em 0 .25em; color: var(--text); }
+    .md-p  { margin: .4em 0; }
+    .md-ul { margin: .3em 0 .3em 1.2em; padding: 0; }
+    .md-ul li { margin-bottom: .2em; }
+
     /* ── 인라인 IFRS 인용 링크 ───────────────────────────────────── */
     .ifrs-cite {
       color: var(--ifrs);
@@ -1097,8 +1104,8 @@
       : '';
 
     const answerText = isIfrs && data.ifrs_sources?.length
-      ? linkifyIFRS(data.answer, data.ifrs_sources)
-      : esc(data.answer);
+      ? renderAnswer(data.answer, true)
+      : renderAnswer(data.answer, false);
 
     const answerHtml = data.answer ? `
       <div class="answer-card">
@@ -1130,14 +1137,41 @@
     }
   }
 
-  // IFRS 참조 텍스트 → 클릭 가능한 인라인 링크
-  const _IFRS_RE = /(?:K-)?(?:IFRS|IAS)\s*(?:제)?\s*\d+(?:호)?(?:\s*문단\s*\d+[A-Z]?(?:-\d+[A-Z]?)?)?/gi;
+  // IFRS 참조 정규식 — 문단 범위(27~30, 27-30) 및 BC/AG 참조 포함
+  const _IFRS_RE = /(?:K-)?(?:IFRS|IAS)\s*(?:제)?\s*\d+(?:호)?(?:\s*문단\s*\d+[A-Z]?(?:[~\-]\d+[A-Z]?)?)?/gi;
   let _ifrsSources = [];
 
-  function linkifyIFRS(text, sources) {
-    return esc(text).replace(_IFRS_RE, match =>
-      `<span class="ifrs-cite" onclick="showIFRSCite('${match.replace(/'/g, "\\'")}')" title="클릭하여 관련 조문 보기">${match}</span>`
-    );
+  function renderAnswer(text, ifrsMode) {
+    // 1) IFRS 참조를 플레이스홀더로 임시 치환 (esc 전)
+    const refs = [];
+    const marked = ifrsMode
+      ? text.replace(_IFRS_RE, m => { refs.push(m); return `\x00${refs.length - 1}\x00`; })
+      : text;
+
+    // 2) HTML 이스케이프
+    let html = esc(marked);
+
+    // 3) 마크다운 렌더링
+    html = html
+      .replace(/^#### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
+      .replace(/^### (.+)$/gm,  '<h3 class="md-h3">$1</h3>')
+      .replace(/^## (.+)$/gm,   '<h3 class="md-h3">$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+      .replace(/^[-•] (.+)$/gm,  '<li>$1</li>')
+      .replace(/(<li>[\s\S]+?<\/li>)(?!\n*<li>)/g, '<ul class="md-ul">$1</ul>')
+      .replace(/\n{2,}/g, '</p><p class="md-p">')
+      .replace(/\n/g, '<br>');
+    html = '<p class="md-p">' + html + '</p>';
+
+    // 4) 플레이스홀더 → 클릭 가능한 IFRS 링크 복원
+    if (ifrsMode) {
+      html = html.replace(/\x00(\d+)\x00/g, (_, i) => {
+        const ref = refs[+i];
+        return `<span class="ifrs-cite" onclick="showIFRSCite('${ref.replace(/'/g, "\\'")}')" title="클릭하여 관련 조문 보기">${esc(ref)}</span>`;
+      });
+    }
+    return html;
   }
 
   async function showIFRSCite(ref) {
