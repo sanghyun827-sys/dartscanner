@@ -1012,8 +1012,8 @@
       });
       if (!r.ok) throw new Error((await r.text()) || `서버 오류 (${r.status})`);
       renderResults(await r.json(), debateMode);
-    } catch {
-      renderResults(demoResult(q, isIfrs), debateMode);
+    } catch (err) {
+      setContent(`<div style="color:#e74c3c;padding:20px;white-space:pre-wrap;">검색 오류: ${err.message}</div>`);
     } finally {
       btn.disabled = false;
       btn.textContent = '검색';
