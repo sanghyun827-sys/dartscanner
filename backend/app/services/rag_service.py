@@ -135,19 +135,19 @@ class RAGService:
         if corp_name:
             sql = text("""
                 SELECT rcp_no, corp_name, report_nm, chunk_text,
-                       1 - (embedding <=> :vec::vector) AS similarity
+                       1 - (embedding <=> CAST(:vec AS vector)) AS similarity
                 FROM document_chunks
                 WHERE corp_name ILIKE :corp
-                ORDER BY embedding <=> :vec::vector
+                ORDER BY embedding <=> CAST(:vec AS vector)
                 LIMIT :k
             """)
             result = await db.execute(sql, {"vec": vec_str, "corp": f"%{corp_name}%", "k": top_k})
         else:
             sql = text("""
                 SELECT rcp_no, corp_name, report_nm, chunk_text,
-                       1 - (embedding <=> :vec::vector) AS similarity
+                       1 - (embedding <=> CAST(:vec AS vector)) AS similarity
                 FROM document_chunks
-                ORDER BY embedding <=> :vec::vector
+                ORDER BY embedding <=> CAST(:vec AS vector)
                 LIMIT :k
             """)
             result = await db.execute(sql, {"vec": vec_str, "k": top_k})

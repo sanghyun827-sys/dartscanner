@@ -124,12 +124,12 @@ class HybridSearchService:
                    dc.chunk_text,
                    dc.meta,
                    d.rcept_dt,
-                   1 - (dc.embedding <=> :vec::vector) AS score
+                   1 - (dc.embedding <=> CAST(:vec AS vector)) AS score
             FROM   document_chunks dc
             JOIN   disclosures d ON dc.rcp_no = d.rcp_no
             WHERE  dc.embedding IS NOT NULL
                    {corp_clause}
-            ORDER  BY dc.embedding <=> :vec::vector
+            ORDER  BY dc.embedding <=> CAST(:vec AS vector)
             LIMIT  :k
         """)
 

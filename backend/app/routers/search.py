@@ -94,9 +94,9 @@ async def _ifrs_search(req: SearchRequest, gemini: GeminiService, db: AsyncSessi
     result = await db.execute(
         sql_text("""
             SELECT standard_name, chunk_text,
-                   1 - (embedding <=> :vec::vector) AS similarity
+                   1 - (embedding <=> CAST(:vec AS vector)) AS similarity
             FROM ifrs_chunks
-            ORDER BY embedding <=> :vec::vector
+            ORDER BY embedding <=> CAST(:vec AS vector)
             LIMIT :k
         """),
         {"vec": vec_str, "k": req.top_k},
