@@ -1,31 +1,39 @@
 import logging
+import httpx
 from google import genai
-from google.genai import types
 
 logger = logging.getLogger(__name__)
+
+_EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent"
 
 
 class GeminiService:
     def __init__(self, api_key: str, chat_model: str = "gemini-2.0-flash", embedding_model: str = "text-embedding-004"):
+        self._api_key = api_key
         self._client = genai.Client(api_key=api_key, http_options={"api_version": "v1"})
         self.chat_model_name = chat_model
         self.embedding_model_name = embedding_model.replace("models/", "")
 
+    async def _embed(self, text: str, task_type: str) -> list[float]:
+        url = _EMBED_URL.format(model=self.embedding_model_name)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                url,
+                params={"key": self._api_key},
+                json={
+                    "model": f"models/{self.embedding_model_name}",
+                    "content": {"parts": [{"text": text}]},
+                    "taskType": task_type,
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()["embedding"]["values"]
+
     async def embed_document(self, text: str) -> list[float]:
-        result = await self._client.aio.models.embed_content(
-            model=self.embedding_model_name,
-            contents=text[:8000],
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
-        )
-        return result.embeddings[0].values
+        return await self._embed(text[:8000], "RETRIEVAL_DOCUMENT")
 
     async def embed_query(self, text: str) -> list[float]:
-        result = await self._client.aio.models.embed_content(
-            model=self.embedding_model_name,
-            contents=text[:2000],
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
-        )
-        return result.embeddings[0].values
+        return await self._embed(text[:2000], "RETRIEVAL_QUERY")
 
     async def generate(self, prompt: str) -> str:
         response = await self._client.aio.models.generate_content(
@@ -44,7 +52,6 @@ class GeminiService:
                 f"{c['chunk_text']}"
             )
         context = "\n\n".join(ctx_parts)
-
         prompt = f"""당신은 한국 금융 공시 분석 전문가입니다.
 아래 DART 공시 자료를 바탕으로 사용자의 질문에 정확하고 상세하게 한국어로 답변하세요.
 
