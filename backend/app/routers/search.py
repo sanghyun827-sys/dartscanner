@@ -96,12 +96,15 @@ async def _ifrs_search(req: SearchRequest, gemini: GeminiService, db: AsyncSessi
             SELECT standard_name, chunk_text,
                    1 - (embedding <=> CAST(:vec AS vector)) AS similarity
             FROM ifrs_chunks
+            WHERE LENGTH(chunk_text) >= 100
             ORDER BY embedding <=> CAST(:vec AS vector)
             LIMIT :k
         """),
         {"vec": vec_str, "k": req.top_k},
     )
-    chunks = result.fetchall()
+    # 유사도 0.6 미만 청크 제외
+    all_chunks = result.fetchall()
+    chunks = [r for r in all_chunks if float(r.similarity) >= 0.6]
 
     if not chunks:
         return await _ifrs_llm_fallback(req, gemini)
