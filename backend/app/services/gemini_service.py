@@ -24,6 +24,7 @@ class GeminiService:
                     "model": f"models/{self.embedding_model_name}",
                     "content": {"parts": [{"text": text}]},
                     "taskType": task_type,
+                    "outputDimensionality": 768,
                 },
             )
             resp.raise_for_status()
