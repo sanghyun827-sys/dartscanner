@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+raw_documents/
+data/
+postgres_data/
+*.zip
+.DS_Store

@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DART Scanner — 관리자</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b1120;
+      --surface:   #131e30;
+      --raised:    #1a2740;
+      --border:    #243450;
+      --border-lo: #1a2740;
+      --txt:       #e2e8f0;
+      --txt-2:     #94a3b8;
+      --txt-3:     #4a6080;
+      --accent:    #3b82f6;
+      --accent-d:  #2563eb;
+      --green:     #22c55e;
+      --yellow:    #f59e0b;
+      --red:       #ef4444;
+      --cyan:      #06b6d4;
+      --purple:    #818cf8;
+      --r:         8px;
+      --hh:        56px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    /* ── Login ─────────────────────────────────────────────── */
+    #login-screen {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 0%, #1a2740 0%, #0b1120 65%);
+    }
+    .login-box {
+      width: 100%; max-width: 380px;
+      padding: 44px 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 24px 48px rgba(0,0,0,.55);
+    }
+    .login-brand { text-align: center; margin-bottom: 36px; }
+    .brand-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 14px; font-size: 1.6rem; margin-bottom: 16px;
+    }
+    .login-brand h1 { font-size: 1.4rem; font-weight: 700; }
+    .login-brand p  { color: var(--txt-3); font-size: .85rem; margin-top: 4px; }
+    .login-error {
+      background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.25);
+      color: var(--red); border-radius: 6px;
+      padding: 8px 12px; font-size: .85rem; margin-bottom: 14px;
+    }
+
+    /* ── Header ────────────────────────────────────────────── */
+    .header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--hh); background: var(--surface);
+      border-bottom: 1px solid var(--border); z-index: 200;
+    }
+    .header-inner {
+      max-width: 1440px; margin: 0 auto;
+      padding: 0 24px; height: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .h-logo {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 8px; font-size: 1rem;
+    }
+    .h-title { font-weight: 700; font-size: .95rem; }
+    .h-sep   { color: var(--border); font-size: 1.2rem; }
+    .h-sub   { color: var(--txt-3); font-size: .8rem; }
+
+    /* ── Main ──────────────────────────────────────────────── */
+    .main {
+      max-width: 1440px; margin: 0 auto;
+      padding: calc(var(--hh) + 28px) 24px 56px;
+      display: flex; flex-direction: column; gap: 28px;
+    }
+    .sec-label {
+      font-size: .72rem; font-weight: 700;
+      color: var(--txt-3); text-transform: uppercase; letter-spacing: .08em;
+      margin-bottom: 12px;
+    }
+
+    /* ── Stats ─────────────────────────────────────────────── */
+    .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 22px 20px;
+      display: flex; align-items: center; gap: 16px;
+      transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-ico { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+    .stat-val { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-lbl { color: var(--txt-3); font-size: .8rem; margin-top: 5px; }
+
+    /* ── Two-col ───────────────────────────────────────────── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* ── Card ──────────────────────────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+    .card-head {
+      padding: 15px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-head h3 { font-size: .9rem; font-weight: 600; }
+    .card-body { padding: 20px; }
+
+    /* ── Forms ─────────────────────────────────────────────── */
+    .fg { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .fg label { font-size: .78rem; font-weight: 600; color: var(--txt-2); }
+    .inp {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 12px;
+      color: var(--txt); font-size: .875rem; width: 100%; outline: none;
+      transition: border-color .15s;
+    }
+    .inp:focus { border-color: var(--accent); }
+    .inp::placeholder { color: var(--txt-3); }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.5); cursor: pointer; }
+    .two-inp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Buttons ───────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 8px 16px;
+      border: 1px solid transparent; border-radius: 6px;
+      font-size: .85rem; font-weight: 600;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary  { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover:not(:disabled)  { background: var(--accent-d); border-color: var(--accent-d); }
+    .btn-cyan     { background: transparent; color: var(--cyan); border-color: rgba(6,182,212,.4); }
+    .btn-cyan:hover:not(:disabled)     { background: rgba(6,182,212,.1); }
+    .btn-gradient { background: linear-gradient(135deg, var(--accent), #6366f1); color: #fff; border-color: transparent; }
+    .btn-gradient:hover:not(:disabled) { opacity: .88; }
+    .btn-ghost    { background: transparent; color: var(--txt-2); border-color: var(--border); }
+    .btn-ghost:hover:not(:disabled)    { background: var(--raised); color: var(--txt); }
+    .btn-danger   { background: transparent; color: var(--red); border-color: rgba(239,68,68,.4); }
+    .btn-danger:hover:not(:disabled)   { background: rgba(239,68,68,.1); }
+    .btn-full-w   { width: 100%; }
+    .btn-sm       { padding: 4px 10px; font-size: .78rem; }
+
+    /* ── Badges ────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 9px; border-radius: 99px;
+      font-size: .72rem; font-weight: 700; white-space: nowrap;
+    }
+    .badge-idle   { background: rgba(74,96,128,.2);  color: var(--txt-3); }
+    .badge-run    { background: rgba(59,130,246,.15); color: var(--accent); }
+    .badge-ok     { background: rgba(34,197,94,.15);  color: var(--green); }
+    .badge-err    { background: rgba(239,68,68,.15);  color: var(--red); }
+    .badge-online { background: rgba(34,197,94,.15);  color: var(--green); }
+
+    /* ── Mode sections (crawl panel) ───────────────────────── */
+    .mode-keyword { padding: 16px 20px 0; }
+    .mode-blk     { padding: 16px 20px; }
+    .mode-sep     { height: 1px; background: var(--border); }
+    .mode-hd      { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+    .mode-n {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      background: var(--raised); border: 1px solid var(--border);
+      font-size: .72rem; font-weight: 800; color: var(--txt-2);
+      display: flex; align-items: center; justify-content: center; margin-top: 1px;
+    }
+    .mode-nm  { font-size: .875rem; font-weight: 700; }
+    .mode-dsc { font-size: .74rem; color: var(--txt-3); margin-top: 2px; }
+    .mode-btn-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .mode-btn-row .btn { flex: 1; }
+
+    /* ── Mode status area ──────────────────────────────────── */
+    .mstat { margin-top: 10px; background: var(--raised); border-radius: 6px; padding: 9px 11px; }
+    .mst-bar-bg {
+      height: 4px; background: var(--bg);
+      border-radius: 99px; overflow: hidden; margin-bottom: 8px;
+    }
+    .mst-bar { height: 100%; border-radius: 99px; transition: width .5s ease; }
+    .mst-bar.dl    { background: var(--accent); }
+    .mst-bar.parse { background: var(--cyan); }
+    .mst-bar.full  { background: linear-gradient(90deg, var(--accent), var(--purple)); }
+    .mst-row { display: flex; justify-content: space-between; align-items: center; font-size: .75rem; }
+    .mst-ph  { display: flex; align-items: center; gap: 5px; color: var(--txt-2); }
+    .pdot-s  { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .pdot-s.idle { background: var(--txt-3); }
+    .pdot-s.run  { background: var(--accent); animation: blink 1.4s infinite; }
+    .pdot-s.ok   { background: var(--green); }
+    .pdot-s.err  { background: var(--red); }
+    .mst-ct      { display: flex; gap: 10px; }
+    .mst-ct span { color: var(--txt-3); }
+    .mst-ct b.g  { color: var(--green); }
+    .mst-ct b.r  { color: var(--red); }
+    .mst-ct b.y  { color: var(--yellow); }
+    .mst-ct b.b  { color: var(--accent); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    /* ── Monitor (right panel) ─────────────────────────────── */
+    .phase-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--raised); border-radius: 6px;
+      padding: 11px 14px; margin-bottom: 18px; font-size: .875rem;
+    }
+    .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .pdot.idle { background: var(--txt-3); }
+    .pdot.run  { background: var(--accent); animation: blink 1.4s infinite; }
+    .pdot.ok   { background: var(--green); }
+    .pdot.err  { background: var(--red); }
+    .prog-hd  { display: flex; justify-content: space-between; font-size: .8rem; color: var(--txt-2); margin-bottom: 7px; }
+    .prog-bg  { background: var(--raised); border-radius: 99px; height: 8px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,var(--accent),var(--purple)); transition: width .6s ease; }
+    .prog-sub { text-align: right; font-size: .74rem; color: var(--txt-3); margin-top: 4px; }
+    .cnt-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 20px; }
+    .cnt { text-align: center; padding: 12px 6px; background: var(--raised); border-radius: 6px; }
+    .cnt-val { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .cnt-val.g { color: var(--green); }
+    .cnt-val.b { color: var(--accent); }
+    .cnt-val.y { color: var(--yellow); }
+    .cnt-val.r { color: var(--red); }
+    .cnt-lbl   { font-size: .72rem; color: var(--txt-3); }
+
+    /* ── Log viewer ────────────────────────────────────────── */
+    .log-box {
+      height: 320px; overflow-y: auto;
+      background: #070d18; border-top: 1px solid var(--border);
+      font-family: 'Consolas','Monaco','Courier New',monospace;
+      font-size: .78rem; padding: 6px 4px;
+    }
+    .log-box::-webkit-scrollbar { width: 6px; }
+    .log-box::-webkit-scrollbar-track { background: transparent; }
+    .log-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .log-row {
+      display: flex; gap: 8px; padding: 1.5px 6px;
+      border-radius: 3px; line-height: 1.65; align-items: baseline;
+    }
+    .log-row:hover { background: rgba(255,255,255,.03); }
+    .log-t  { color: var(--txt-3); flex-shrink: 0; white-space: nowrap; }
+    .log-lv { flex-shrink: 0; min-width: 58px; font-weight: 700; }
+    .log-nm { color: #7dd3fc; flex-shrink: 0; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .log-m  { color: var(--txt); word-break: break-all; }
+    .log-row.info    .log-lv { color: var(--cyan); }
+    .log-row.warning .log-lv { color: var(--yellow); }
+    .log-row.error   .log-lv { color: var(--red); }
+    .log-row.debug   .log-lv { color: var(--txt-3); }
+    .log-empty { color: var(--txt-3); text-align: center; padding: 20px; }
+
+    /* ── Table ─────────────────────────────────────────────── */
+    .filter-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-bar .fg { margin-bottom: 0; flex: 1; min-width: 160px; }
+    .filter-bar .fg.grow { flex: 2; min-width: 200px; }
+    .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+    .dtbl { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .dtbl th {
+      background: var(--raised); padding: 10px 14px;
+      text-align: left; font-size: .7rem; font-weight: 700;
+      color: var(--txt-3); text-transform: uppercase; letter-spacing: .05em;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .dtbl td { padding: 10px 14px; border-bottom: 1px solid var(--border-lo); vertical-align: middle; }
+    .dtbl tr:last-child td { border-bottom: none; }
+    .dtbl tr:hover td { background: rgba(255,255,255,.018); }
+    .corp { font-weight: 600; }
+    .chip {
+      display: inline-block; background: rgba(59,130,246,.12);
+      color: var(--accent); padding: 1px 8px; border-radius: 99px;
+      font-size: .72rem; font-weight: 700;
+    }
+    .ext-link { color: var(--accent); text-decoration: none; font-size: .8rem; }
+    .ext-link:hover { text-decoration: underline; }
+    .pager {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 14px; flex-wrap: wrap; gap: 8px;
+    }
+    .pager-info { font-size: .82rem; color: var(--txt-3); }
+    .pager-btns { display: flex; align-items: center; gap: 4px; }
+    .pager-cur  { padding: 4px 10px; font-size: .82rem; color: var(--txt-2); }
+
+    /* ── Utilities ─────────────────────────────────────────── */
+    .hidden    { display: none !important; }
+    .flex-row  { display: flex; align-items: center; gap: 10px; }
+    .txt-c     { text-align: center; }
+    .txt-m     { color: var(--txt-3); }
+    .txt-s     { font-size: .8rem; }
+
+    /* ── Settings: checkbox ────────────────────────────────── */
+    .check-label {
+      display: flex; align-items: center; gap: 9px;
+      cursor: pointer; padding: 5px 0; user-select: none;
+      font-size: .875rem; color: var(--txt);
+    }
+    .check-inp { display: none; }
+    .check-box {
+      width: 17px; height: 17px; flex-shrink: 0;
+      border: 2px solid var(--border); border-radius: 4px;
+      background: var(--bg); transition: background .15s, border-color .15s;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .65rem; font-weight: 900; color: transparent;
+    }
+    .check-inp:checked ~ .check-box {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+
+    /* ── Settings: groups ──────────────────────────────────── */
+    .sgrp { border: 1px solid var(--border-lo); border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+    .sgrp-title {
+      padding: 7px 12px; background: var(--raised);
+      font-size: .7rem; font-weight: 700; color: var(--txt-3);
+      text-transform: uppercase; letter-spacing: .06em;
+    }
+    .check-row { padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 6px 22px; }
+    .check-col { padding: 4px 12px 8px; display: flex; flex-direction: column; gap: 0; }
+
+    /* ── Settings: toggle ──────────────────────────────────── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0 14px; border-bottom: 1px solid var(--border-lo);
+    }
+    .toggle-lbl   { font-size: .875rem; font-weight: 600; margin-bottom: 2px; }
+    .toggle-desc  { font-size: .74rem; color: var(--txt-3); }
+    .toggle-sw    { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle-sw input { opacity: 0; width: 0; height: 0; }
+    .toggle-sl {
+      position: absolute; inset: 0;
+      background: var(--raised); border: 1px solid var(--border);
+      border-radius: 99px; cursor: pointer; transition: .2s;
+    }
+    .toggle-sl::before {
+      content: ''; position: absolute;
+      width: 16px; height: 16px; border-radius: 50%;
+      left: 3px; bottom: 3px;
+      background: var(--txt-3); transition: .2s;
+    }
+    .toggle-sw input:checked + .toggle-sl { background: var(--accent); border-color: var(--accent); }
+    .toggle-sw input:checked + .toggle-sl::before { transform: translateX(20px); background: #fff; }
+
+    /* ── Settings: misc ────────────────────────────────────── */
+    .time-row { display: flex; align-items: center; gap: 10px; }
+    .notify-result {
+      margin-top: 10px; padding: 10px 14px;
+      border-radius: 6px; font-size: .82rem; line-height: 1.5;
+    }
+    .notify-result.ok  { background: rgba(34,197,94,.08);  border: 1px solid rgba(34,197,94,.25);  color: var(--green); }
+    .notify-result.err { background: rgba(239,68,68,.08);  border: 1px solid rgba(239,68,68,.25);  color: var(--red); }
+    .notify-result.inf { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25); color: var(--accent); }
+    .sched-run-info { font-size: .74rem; color: var(--txt-3); margin-top: 8px; text-align: center; }
+    .indent-inp { margin-top: 6px; padding-left: 26px; }
+
+    /* ── Disclosure type checkboxes ───────────────────────── */
+    .pblntf-types { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 6px 0; }
+    .pblntf-types .check-label { font-size: .82rem; }
+
+    /* ── GPU VM row ────────────────────────────────────────── */
+    .gpu-row {
+      display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+      background: var(--raised); border-radius: 6px;
+      padding: 7px 11px; margin-bottom: 8px;
+    }
+    .gpu-row .gpu-lbl { font-size: .78rem; font-weight: 700; color: var(--txt-2); flex-shrink: 0; }
+
+    /* ── Responsive ────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .two-col   { grid-template-columns: 1fr; }
+      .cnt-grid  { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 540px) {
+      .main      { padding: calc(var(--hh) + 16px) 14px 40px; }
+      .stats-row { grid-template-columns: 1fr; }
+      .two-inp   { grid-template-columns: 1fr; }
+      .filter-bar .fg { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOGIN ═══════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="brand-badge">⚡</div>
+      <h1>DART Scanner</h1>
+      <p>관리자 전용 페이지</p>
+    </div>
+    <div id="login-err" class="login-error hidden"></div>
+    <div class="fg">
+      <label for="pw-inp">비밀번호</label>
+      <input id="pw-inp" type="password" class="inp" placeholder="관리자 비밀번호 입력" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-full-w" onclick="doLogin()">로그인</button>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ════════════════════════════════════════════ -->
+<div id="dashboard" class="hidden">
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <span class="h-logo">⚡</span>
+        <span class="h-title">DART Scanner</span>
+        <span class="h-sep">|</span>
+        <span class="h-sub">관리자 대시보드</span>
+        <span id="srv-badge" class="badge badge-idle">연결 중...</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="window.open('index.html','_blank')">↗ 일반 화면 보기</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ── DB 현황 ──────────────────────────────────────── -->
+    <section>
+      <p class="sec-label">DB 현황</p>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-ico">📁</div>
+          <div><div class="stat-val" id="s-disc">—</div><div class="stat-lbl">총 공시 수</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-ico">📄</div>
+          <div><div class="stat-val" id="s-chunks">—</div><div class="stat-lbl">총 청크 수</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-ico">🕐</div>
+          <div><div class="stat-val" id="s-upd" style="font-size:1.1rem">—</div><div class="stat-lbl">마지막 업데이트</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 크롤링 실행 / 모니터링 ─────────────────────── -->
+    <section>
+      <p class="sec-label">크롤링</p>
+      <div class="two-col">
+
+        <!-- 크롤링 실행 패널 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>크롤링 실행</h3>
+            <span id="crawl-badge" class="badge badge-idle">대기 중</span>
+          </div>
+
+          <!-- 공통 키워드 -->
+          <div class="mode-keyword">
+            <div class="fg">
+              <label>공시 유형 키워드 <span class="txt-m txt-s">(선택 — 세 모드 공통)</span></label>
+              <input id="c-type" type="text" class="inp" placeholder="예: 무상증자, 유상증자, 합병">
+            </div>
+            <!-- 공시 유형 체크박스 (다운로드 / 전체 실행 적용) -->
+            <div class="fg" style="margin-bottom:0">
+              <label>공시 유형 선택 <span class="txt-m txt-s">(선택 없으면 전체 — 다운로드/전체 실행에 적용)</span></label>
+              <div class="pblntf-types">
+                <label class="check-label"><input type="checkbox" value="A" class="check-inp pblntf-chk" checked><span class="check-box">✓</span>A - 정기공시</label>
+                <label class="check-label"><input type="checkbox" value="B" class="check-inp pblntf-chk"><span class="check-box">✓</span>B - 주요사항보고</label>
+                <label class="check-label"><input type="checkbox" value="C" class="check-inp pblntf-chk"><span class="check-box">✓</span>C - 발행공시</label>
+                <label class="check-label"><input type="checkbox" value="D" class="check-inp pblntf-chk"><span class="check-box">✓</span>D - 지분공시</label>
+                <label class="check-label"><input type="checkbox" value="E" class="check-inp pblntf-chk"><span class="check-box">✓</span>E - 기타공시</label>
+                <label class="check-label"><input type="checkbox" value="F" class="check-inp pblntf-chk"><span class="check-box">✓</span>F - 외부감사</label>
+                <label class="check-label"><input type="checkbox" value="G" class="check-inp pblntf-chk"><span class="check-box">✓</span>G - 펀드</label>
+                <label class="check-label"><input type="checkbox" value="H" class="check-inp pblntf-chk"><span class="check-box">✓</span>H - 자산유동화</label>
+                <label class="check-label"><input type="checkbox" value="I" class="check-inp pblntf-chk"><span class="check-box">✓</span>I - 거래소공시</label>
+                <label class="check-label"><input type="checkbox" value="J" class="check-inp pblntf-chk"><span class="check-box">✓</span>J - 공정위공시</label>
+                <label class="check-label" style="border-left:1px solid var(--border);padding-left:14px;margin-left:4px">
+                  <input type="checkbox" id="pt-all" class="check-inp" onchange="toggleAllTypes(this)">
+                  <span class="check-box">✓</span><span style="color:var(--txt-3)">전체 선택</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- ❶ 다운로드 -->
+          <div class="mode-sep"></div>
+          <div class="mode-blk">
+            <div class="mode-hd">
+              <div class="mode-n">1</div>
+              <div>
+                <div class="mode-nm">다운로드</div>
+                <div class="mode-dsc">DART → raw_documents/{rcept_no}.zip 저장</div>
+              </div>
+            </div>
+            <div class="two-inp">
+              <div class="fg" style="margin:0"><label>시작일</label><input id="dl-s" type="date" class="inp"></div>
+              <div class="fg" style="margin:0"><label>종료일</label><input id="dl-e" type="date" class="inp"></div>
+            </div>
+            <div class="mode-btn-row">
+              <button id="btn-dl" class="btn btn-primary" onclick="doCrawl('download')">↓ 다운로드</button>
+              <span id="bdg-dl" class="badge badge-idle">대기 중</span>
+            </div>
+            <div id="mst-dl" class="mstat hidden"></div>
+          </div>
+
+          <!-- ❷ 파싱 -->
+          <div class="mode-sep"></div>
+          <div class="mode-blk">
+            <div class="mode-hd">
+              <div class="mode-n">2</div>
+              <div>
+                <div class="mode-nm">파싱 + DB 저장 <span class="txt-s txt-m">(GPU VM)</span></div>
+                <div class="mode-dsc">raw_documents ZIP → 임베딩 → DB 저장 (GPU VM SSH 실행)</div>
+              </div>
+            </div>
+            <!-- GPU VM 상태 -->
+            <div class="gpu-row">
+              <span class="gpu-lbl">GPU VM</span>
+              <span id="gpu-badge" class="badge badge-idle">확인 중…</span>
+              <button class="btn btn-ghost btn-sm" onclick="startGpuVm(this)" title="인스턴스 시작">▶ 시작</button>
+              <button class="btn btn-danger btn-sm" onclick="stopGpuVm(this)" title="인스턴스 중지">■ 중지</button>
+              <button class="btn btn-ghost btn-sm" onclick="checkGpuVm()" title="상태 새로고침" style="padding:4px 7px">↻</button>
+            </div>
+            <div class="mode-btn-row" style="margin-top:0">
+              <button id="btn-parse" class="btn btn-cyan" onclick="doCrawl('parse')">⚙ 파싱 시작</button>
+              <span id="bdg-parse" class="badge badge-idle">대기 중</span>
+            </div>
+            <div id="mst-parse" class="mstat hidden"></div>
+          </div>
+
+          <!-- ❸ 전체 실행 -->
+          <div class="mode-sep"></div>
+          <div class="mode-blk">
+            <div class="mode-hd">
+              <div class="mode-n" style="background:linear-gradient(135deg,var(--accent),#6366f1);color:#fff;border-color:transparent">3</div>
+              <div>
+                <div class="mode-nm">전체 실행</div>
+                <div class="mode-dsc">다운로드 → 파싱 자동 연속 실행</div>
+              </div>
+            </div>
+            <div class="two-inp">
+              <div class="fg" style="margin:0"><label>시작일</label><input id="full-s" type="date" class="inp"></div>
+              <div class="fg" style="margin:0"><label>종료일</label><input id="full-e" type="date" class="inp"></div>
+            </div>
+            <div class="mode-btn-row">
+              <button id="btn-full-r" class="btn btn-gradient" onclick="doCrawl('full')">▶ 전체 실행</button>
+              <span id="bdg-full" class="badge badge-idle">대기 중</span>
+            </div>
+            <div id="mst-full" class="mstat hidden"></div>
+          </div>
+        </div>
+
+        <!-- 모니터링 패널 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>실시간 모니터링</h3>
+            <div class="flex-row">
+              <button id="btn-stop" class="btn btn-danger btn-sm hidden" onclick="stopCrawl(this)">■ 중지</button>
+              <span class="txt-m txt-s">3초마다 갱신</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="phase-row">
+              <span class="pdot idle" id="pdot"></span>
+              <span id="phase-txt">대기 중</span>
+            </div>
+            <div class="prog-hd">
+              <span id="prog-label">진행률</span>
+              <span id="prog-pct">0 %</span>
+            </div>
+            <div class="prog-bg">
+              <div class="prog-fill" id="prog-fill" style="width:0%"></div>
+            </div>
+            <div class="prog-sub" id="prog-sub">—</div>
+            <div class="cnt-grid">
+              <div class="cnt"><div class="cnt-val g" id="cnt-dl">0</div><div class="cnt-lbl">다운로드</div></div>
+              <div class="cnt"><div class="cnt-val b" id="cnt-st">0</div><div class="cnt-lbl">DB 저장</div></div>
+              <div class="cnt"><div class="cnt-val y" id="cnt-sk">0</div><div class="cnt-lbl">스킵</div></div>
+              <div class="cnt"><div class="cnt-val r" id="cnt-fl">0</div><div class="cnt-lbl">실패</div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── 크롤링 로그 ─────────────────────────────────── -->
+    <section>
+      <div class="card">
+        <div class="card-head">
+          <h3>크롤링 로그</h3>
+          <div class="flex-row">
+            <span class="txt-m txt-s">10초마다 갱신</span>
+            <button class="btn btn-ghost btn-sm" onclick="clearLogView()">지우기</button>
+          </div>
+        </div>
+        <div class="log-box" id="log-box"><div class="log-empty">로그가 없습니다.</div></div>
+      </div>
+    </section>
+
+    <!-- ── DART API 호출 현황 ─────────────────────────── -->
+    <section>
+      <p class="sec-label">DART API 사용 현황</p>
+      <div class="card">
+        <div class="card-head">
+          <h3>일일 API 호출 현황</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadQuota()">↻ 새로고침</button>
+        </div>
+        <div class="card-body">
+          <!-- 통계 수치 -->
+          <div class="cnt-grid" style="margin-bottom:18px">
+            <div class="cnt"><div class="cnt-val b" id="q-used">—</div><div class="cnt-lbl">오늘 사용</div></div>
+            <div class="cnt"><div class="cnt-val g" id="q-remain">—</div><div class="cnt-lbl">남은 호출</div></div>
+            <div class="cnt"><div class="cnt-val" id="q-limit-disp">—</div><div class="cnt-lbl">일일 한도</div></div>
+            <div class="cnt"><div class="cnt-val" id="q-date" style="font-size:1rem">—</div><div class="cnt-lbl">기준 날짜</div></div>
+          </div>
+          <!-- 사용률 프로그레스 바 -->
+          <div style="margin-bottom:18px">
+            <div class="prog-hd">
+              <span id="q-bar-label">사용률</span>
+              <span id="q-pct">0%</span>
+            </div>
+            <div class="prog-bg">
+              <div class="prog-fill" id="q-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <!-- 한도 변경 -->
+          <div class="fg" style="margin-bottom:10px">
+            <label>일일 한도 변경 <span class="txt-m txt-s">(DART_DAILY_LIMIT)</span></label>
+            <div style="display:flex;gap:8px">
+              <input id="q-limit-inp" type="number" class="inp" placeholder="19000"
+                     min="1" max="19000" style="flex:1">
+              <button class="btn btn-primary" onclick="setQuotaLimit()">적용</button>
+            </div>
+          </div>
+          <div id="q-result" class="notify-result hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 알림 & 스케줄러 설정 ──────────────────────────── -->
+    <section>
+      <p class="sec-label">알림 &amp; 스케줄러 설정</p>
+      <div class="two-col">
+
+        <!-- 알림 설정 카드 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>알림 설정</h3>
+            <span id="settings-badge" class="badge badge-idle hidden"></span>
+          </div>
+          <div class="card-body">
+
+            <!-- 알림 수단 -->
+            <div class="sgrp">
+              <div class="sgrp-title">알림 수단</div>
+              <div class="check-row">
+                <label class="check-label">
+                  <input type="checkbox" id="n-email" class="check-inp" onchange="toggleEmailRow()">
+                  <span class="check-box">✓</span>이메일
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="n-slack" class="check-inp">
+                  <span class="check-box">✓</span>슬랙
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="n-kakao" class="check-inp" onchange="toggleKakaoRow()">
+                  <span class="check-box">✓</span>카카오톡
+                </label>
+              </div>
+              <div id="email-row" class="indent-inp hidden">
+                <div class="fg" style="margin-bottom:10px">
+                  <label>수신 이메일 주소</label>
+                  <input id="n-email-addr" type="email" class="inp" placeholder="example@email.com">
+                </div>
+              </div>
+              <div id="kakao-row" class="indent-inp hidden">
+                <div class="fg" style="margin-bottom:10px">
+                  <label>카카오 액세스 토큰 <span class="txt-m txt-s">(나에게 보내기)</span></label>
+                  <input id="n-kakao-token" type="text" class="inp" placeholder="카카오 OAuth2 액세스 토큰">
+                </div>
+              </div>
+            </div>
+
+            <!-- 알림 내용 -->
+            <div class="sgrp">
+              <div class="sgrp-title">알림 받을 내용</div>
+              <div class="check-col">
+                <label class="check-label">
+                  <input type="checkbox" id="a-crawl" class="check-inp" checked>
+                  <span class="check-box">✓</span>크롤링 완료 (수집 건수 포함)
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="a-parse" class="check-inp" checked>
+                  <span class="check-box">✓</span>파싱 완료 (저장 건수 포함)
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="a-error" class="check-inp" checked>
+                  <span class="check-box">✓</span>오류 발생 시
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="a-daily" class="check-inp" checked>
+                  <span class="check-box">✓</span>매일 새벽 2시 작업 결과 요약
+                </label>
+              </div>
+            </div>
+
+            <!-- 버튼 -->
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btn-primary" style="flex:1" onclick="saveSettings()">저장</button>
+              <button class="btn btn-ghost" onclick="testNotify(this)">🔔 테스트 발송</button>
+            </div>
+            <div id="notify-result" class="notify-result hidden"></div>
+          </div>
+        </div>
+
+        <!-- 스케줄러 설정 카드 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>스케줄러 설정</h3>
+            <span id="sched-badge" class="badge badge-idle">로딩 중…</span>
+          </div>
+          <div class="card-body">
+
+            <!-- ON/OFF 토글 -->
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-lbl">자동 실행</div>
+                <div class="toggle-desc">매일 지정 시간에 자동으로 공시 수집</div>
+              </div>
+              <label class="toggle-sw">
+                <input type="checkbox" id="sched-on" onchange="onSchedToggle()">
+                <span class="toggle-sl"></span>
+              </label>
+            </div>
+
+            <!-- 실행 시간 -->
+            <div class="fg" style="margin-top:16px">
+              <label>실행 시간 (KST)</label>
+              <div class="time-row">
+                <select id="sched-h" class="inp" style="width:82px"></select>
+                <span style="color:var(--txt-2);font-weight:700;font-size:1.1rem">:</span>
+                <select id="sched-m" class="inp" style="width:82px">
+                  <option value="0">00</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="saveSettings()">적용</button>
+              </div>
+            </div>
+
+            <!-- 구분선 -->
+            <div class="mode-sep" style="margin:20px 0"></div>
+
+            <!-- 수동 즉시 실행 -->
+            <div class="mode-hd" style="margin-bottom:12px">
+              <div>
+                <div class="mode-nm">수동 즉시 실행</div>
+                <div class="mode-dsc">전날 공시를 지금 바로 수집 · 임베딩 · 저장</div>
+              </div>
+            </div>
+            <button id="btn-run-now" class="btn btn-gradient btn-full-w" onclick="runNow(this)">
+              ▶ 지금 즉시 실행
+            </button>
+            <p class="sched-run-info" id="run-date-hint"></p>
+            <div id="run-result" class="notify-result hidden" style="margin-top:8px"></div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── DB 데이터 관리 ──────────────────────────────── -->
+    <section>
+      <div class="card">
+        <div class="card-head">
+          <h3>DB 데이터 관리</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadDisc(1)">↻ 새로고침</button>
+        </div>
+        <div class="card-body">
+          <div class="filter-bar">
+            <div class="fg grow">
+              <label>회사명 검색</label>
+              <input id="f-corp" type="text" class="inp" placeholder="회사명 입력…" oninput="debounceFilter()">
+            </div>
+            <div class="fg"><label>시작일</label><input id="f-from" type="date" class="inp" onchange="loadDisc(1)"></div>
+            <div class="fg"><label>종료일</label><input id="f-to"   type="date" class="inp" onchange="loadDisc(1)"></div>
+            <button class="btn btn-ghost" onclick="resetFilter()">초기화</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="dtbl">
+              <thead>
+                <tr>
+                  <th>회사명</th><th>공시명</th><th>날짜</th>
+                  <th>청크</th><th>DART</th><th>삭제</th>
+                </tr>
+              </thead>
+              <tbody id="disc-tbody">
+                <tr><td colspan="6" class="txt-c txt-m" style="padding:24px">로딩 중…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pager" id="pager"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  /* ── Config ─────────────────────────────────────────── */
+  const API  = window.location.origin;
+  const PASS = 'admin1234';
+
+  const PHASE_LABEL = {
+    idle: '대기 중', listing: '목록 수집 중…', downloading: '다운로드 중…',
+    parsing: '파싱 중…', complete: '완료', error: '오류', stopped: '중지됨',
+  };
+  const MODE_LABEL = { download: '다운로드', parse: '파싱', full: '전체 실행' };
+
+  /* ── State ──────────────────────────────────────────── */
+  let discPage   = 1;
+  let logCache   = [];
+  let logCleared = false;
+  let filterTimer = null;
+
+  /* ═══════════════════════════════════════════════════════
+     LOGIN
+  ════════════════════════════════════════════════════════ */
+  document.getElementById('pw-inp').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  function doLogin() {
+    const val = document.getElementById('pw-inp').value;
+    const err = document.getElementById('login-err');
+    if (val === PASS) {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      initDashboard();
+    } else {
+      err.textContent = '비밀번호가 올바르지 않습니다.';
+      err.classList.remove('hidden');
+      document.getElementById('pw-inp').select();
+    }
+  }
+
+  function doLogout() {
+    document.getElementById('dashboard').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('pw-inp').value = '';
+    document.getElementById('login-err').classList.add('hidden');
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     DASHBOARD INIT
+  ════════════════════════════════════════════════════════ */
+  function initDashboard() {
+    loadStats();
+    loadLogs();
+    loadDisc(1);
+    loadSettings();
+    pollStatus();
+    checkGpuVm();
+    loadQuota();
+    setInterval(loadStats,  30_000);
+    setInterval(loadLogs,   10_000);
+    setInterval(pollStatus,  3_000);
+    setInterval(checkGpuVm, 60_000);  // 1분마다 GPU VM 상태 갱신
+    setInterval(loadQuota,  60_000);  // 1분마다 quota 갱신
+    // 시간 선택 옵션 동적 생성
+    const hSel = document.getElementById('sched-h');
+    for (let i = 0; i < 24; i++) {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = String(i).padStart(2, '0') + '시';
+      hSel.appendChild(o);
+    }
+    // 즉시 실행 버튼 아래 "전날 날짜" 힌트
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toLocaleDateString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'-').replace('.','');
+    document.getElementById('run-date-hint').textContent = `대상: ${yStr} 공시`;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     STATS
+  ════════════════════════════════════════════════════════ */
+  async function loadStats() {
+    try {
+      const r = await fetch(`${API}/stats`);
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      document.getElementById('s-disc').textContent   = num(d.total_disclosures ?? 0);
+      document.getElementById('s-chunks').textContent = num(d.total_documents);
+      document.getElementById('s-upd').textContent    = fmtTs(d.last_updated);
+      setSrvBadge(true);
+    } catch { setSrvBadge(false); }
+  }
+
+  function setSrvBadge(ok) {
+    const el = document.getElementById('srv-badge');
+    el.textContent = ok ? '● 연결됨' : '● 연결 끊김';
+    el.className   = 'badge ' + (ok ? 'badge-online' : 'badge-err');
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     CRAWL — 3 MODE BUTTONS
+  ════════════════════════════════════════════════════════ */
+  const MODE_CFG = {
+    download: { sId: 'dl-s',   eId: 'dl-e',   btnId: 'btn-dl',     bdgId: 'bdg-dl',    mstId: 'mst-dl' },
+    parse:    { sId: null,     eId: null,     btnId: 'btn-parse',  bdgId: 'bdg-parse', mstId: 'mst-parse' },
+    full:     { sId: 'full-s', eId: 'full-e', btnId: 'btn-full-r', bdgId: 'bdg-full',  mstId: 'mst-full' },
+  };
+  const ALL_BTNS = ['btn-dl', 'btn-parse', 'btn-full-r'];
+
+  async function doCrawl(mode) {
+    const { sId, eId, btnId, mstId } = MODE_CFG[mode];
+
+    let start_date = null, end_date = null;
+    if (sId) {
+      start_date = document.getElementById(sId).value.replace(/-/g, '');
+      end_date   = document.getElementById(eId).value.replace(/-/g, '');
+      if (!start_date || !end_date) {
+        renderMstat(mstId, 'err', '시작일과 종료일을 입력해 주세요.', 0, [], mode);
+        return;
+      }
+      if (start_date > end_date) {
+        renderMstat(mstId, 'err', '시작일이 종료일보다 늦습니다.', 0, [], mode);
+        return;
+      }
+    }
+
+    // parse 모드: GPU VM 상태 확인 (configured + offline이면 차단)
+    if (mode === 'parse') {
+      try {
+        const gvmR = await fetch(`${API}/gpu-vm/status`);
+        const gvmD = await gvmR.json();
+        if (gvmD.configured && !gvmD.online) {
+          renderMstat(mstId, 'err', 'GPU VM이 꺼져있습니다. 먼저 GPU VM을 시작해 주세요.', 0, [], mode);
+          return;
+        }
+      } catch { /* 상태 확인 실패 시 계속 진행 */ }
+    }
+
+    const report_nm = document.getElementById('c-type').value.trim() || null;
+
+    // 공시 유형 목록 수집 (parse 모드는 대상 없음)
+    let pblntf_ty_list = null;
+    if (mode !== 'parse') {
+      const checked = [...document.querySelectorAll('.pblntf-chk:checked')].map(el => el.value);
+      if (checked.length > 0 && checked.length < 10) pblntf_ty_list = checked;
+    }
+
+    ALL_BTNS.forEach(id => { document.getElementById(id).disabled = true; });
+
+    try {
+      const r = await fetch(`${API}/crawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, start_date, end_date, report_nm, pblntf_ty_list }),
+      });
+      if (r.status === 409) {
+        renderMstat(mstId, 'err', '이미 크롤링이 진행 중입니다.', 0, [], mode);
+        ALL_BTNS.forEach(id => { document.getElementById(id).disabled = false; });
+        return;
+      }
+      if (!r.ok) {
+        const msg = await r.text();
+        renderMstat(mstId, 'err', `서버 오류: ${msg}`, 0, [], mode);
+        ALL_BTNS.forEach(id => { document.getElementById(id).disabled = false; });
+        return;
+      }
+      // 성공 — 버튼은 pollStatus에서 running=false가 되면 재활성화
+    } catch (e) {
+      renderMstat(mstId, 'err', `요청 실패: ${e.message}`, 0, [], mode);
+      ALL_BTNS.forEach(id => { document.getElementById(id).disabled = false; });
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     CRAWL STATUS — overall monitor (right) + per-mode (left)
+  ════════════════════════════════════════════════════════ */
+  async function pollStatus() {
+    try {
+      const r = await fetch(`${API}/crawl/status`);
+      if (!r.ok) return;
+      const s = await r.json();
+      updateMonitor(s);
+      updateModePanel(s);
+    } catch {}
+  }
+
+  /* ── Right panel ─── */
+  function updateMonitor(s) {
+    const phase   = s.phase || 'idle';
+    const running = s.running;
+
+    const dot = document.getElementById('pdot');
+    dot.className = 'pdot ' + (
+      phase === 'complete' ? 'ok'  :
+      phase === 'error'    ? 'err' :
+      phase === 'stopped'  ? 'idle':
+      running ? 'run' : 'idle'
+    );
+    document.getElementById('phase-txt').textContent = PHASE_LABEL[phase] || phase;
+
+    // 중지 버튼: 실행 중일 때만 표시
+    const stopBtn = document.getElementById('btn-stop');
+    if (stopBtn) stopBtn.classList.toggle('hidden', !running);
+
+    // Progress %
+    let pct = 0;
+    if (phase === 'listing')     pct = 5;
+    else if (phase === 'downloading') {
+      const done = (s.downloaded||0) + (s.dl_skipped||0) + (s.dl_failed||0);
+      pct = s.total > 0 ? 5 + (done / s.total) * 45 : 10;
+    }
+    else if (phase === 'parsing')  pct = 60;
+    else if (phase === 'complete') pct = 100;
+    pct = Math.round(Math.min(pct, 100));
+
+    document.getElementById('prog-fill').style.width = pct + '%';
+    document.getElementById('prog-pct').textContent  = pct + ' %';
+    document.getElementById('prog-sub').textContent  =
+      s.total > 0 ? `${s.current || 0} / ${s.total} 건` : '—';
+
+    // Counters
+    const totalSkip = (s.dl_skipped||0) + (s.parse_skipped||0);
+    const totalFail = (s.dl_failed||0)  + (s.parse_failed||0);
+    document.getElementById('cnt-dl').textContent = s.downloaded || 0;
+    document.getElementById('cnt-st').textContent = s.stored     || 0;
+    document.getElementById('cnt-sk').textContent = totalSkip;
+    document.getElementById('cnt-fl').textContent = totalFail;
+  }
+
+  /* ── Left panel (per-mode status) ─── */
+  function updateModePanel(s) {
+    const { mode, phase, running,
+            total, downloaded, dl_skipped, dl_failed,
+            stored, parse_skipped, parse_failed } = s;
+
+    // Button states
+    ALL_BTNS.forEach(id => { document.getElementById(id).disabled = running; });
+
+    // Overall badge in card header
+    const cb = document.getElementById('crawl-badge');
+    if (running) {
+      cb.textContent = `${MODE_LABEL[mode]||mode} 실행 중`;
+      cb.className = 'badge badge-run';
+    } else if (phase === 'complete') {
+      cb.textContent = '완료'; cb.className = 'badge badge-ok';
+    } else if (phase === 'error') {
+      cb.textContent = '오류'; cb.className = 'badge badge-err';
+    } else if (phase === 'stopped') {
+      cb.textContent = '중지됨'; cb.className = 'badge badge-idle';
+    } else {
+      cb.textContent = '대기 중'; cb.className = 'badge badge-idle';
+    }
+
+    if (!mode || mode === 'idle') return;
+
+    const dotCls = running ? 'run' : phase === 'complete' ? 'ok' : phase === 'error' ? 'err' : 'idle';
+
+    /* download mode */
+    if (mode === 'download') {
+      setBdg('bdg-dl', phase, running);
+      const done = (downloaded||0) + (dl_skipped||0) + (dl_failed||0);
+      const pct  = total > 0 ? Math.round(done / total * 100) : (phase === 'complete' ? 100 : 0);
+      renderMstat('mst-dl', dotCls, PHASE_LABEL[phase]||phase, pct, [
+        { l: '완료', v: downloaded||0, c: 'g' },
+        { l: '스킵', v: dl_skipped||0, c: 'y' },
+        { l: '실패', v: dl_failed||0,  c: 'r' },
+      ], 'download');
+    }
+
+    /* parse mode */
+    if (mode === 'parse') {
+      setBdg('bdg-parse', phase, running);
+      const done = (stored||0) + (parse_skipped||0) + (parse_failed||0);
+      const pct  = total > 0 ? Math.round(done / total * 100) : (phase === 'complete' ? 100 : 0);
+      renderMstat('mst-parse', dotCls, PHASE_LABEL[phase]||phase, pct, [
+        { l: '저장', v: stored||0,        c: 'g' },
+        { l: '스킵', v: parse_skipped||0, c: 'y' },
+        { l: '실패', v: parse_failed||0,  c: 'r' },
+      ], 'parse');
+    }
+
+    /* full mode — shows download + parse sub-status, and full badge */
+    if (mode === 'full') {
+      setBdg('bdg-full', phase, running);
+
+      // Calculate overall pct for full mode
+      let pct = 0;
+      if (phase === 'listing')     pct = 3;
+      else if (phase === 'downloading') {
+        const done = (downloaded||0) + (dl_skipped||0) + (dl_failed||0);
+        pct = 3 + (total > 0 ? (done / total) * 47 : 0);
+      }
+      else if (phase === 'parsing')  pct = 55;
+      else if (phase === 'complete') pct = 100;
+      pct = Math.round(Math.min(pct, 100));
+
+      // What to show per sub-phase
+      let phaseText = PHASE_LABEL[phase] || phase;
+      let counts;
+      if (phase === 'downloading') {
+        counts = [
+          { l: '완료', v: downloaded||0, c: 'g' },
+          { l: '스킵', v: dl_skipped||0, c: 'y' },
+          { l: '실패', v: dl_failed||0,  c: 'r' },
+        ];
+      } else {
+        counts = [
+          { l: '다운', v: downloaded||0, c: 'g' },
+          { l: '저장', v: stored||0,     c: 'b' },
+          { l: '실패', v: (dl_failed||0) + (parse_failed||0), c: 'r' },
+        ];
+      }
+      renderMstat('mst-full', dotCls, phaseText, pct, counts, 'full');
+    }
+
+    // On completion, refresh data
+    if (!running && phase === 'complete') {
+      loadStats();
+      loadDisc(1);
+    }
+  }
+
+  /* ── Helpers ─── */
+  function setBdg(id, phase, running) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const map = {
+      idle: ['대기 중', 'badge-idle'], listing: ['목록 수집', 'badge-run'],
+      downloading: ['다운로드 중', 'badge-run'], parsing: ['파싱 중', 'badge-run'],
+      complete: ['완료', 'badge-ok'], error: ['오류', 'badge-err'],
+      stopped: ['중지됨', 'badge-idle'],
+    };
+    const [txt, cls] = map[phase] || ['대기 중', 'badge-idle'];
+    el.textContent = txt;
+    el.className   = 'badge ' + cls;
+  }
+
+  // mode: 'download' | 'parse' | 'full' — controls bar colour class
+  function renderMstat(id, dotCls, phaseText, pct, counts, mode) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const barCls = mode === 'parse' ? 'parse' : mode === 'full' ? 'full' : 'dl';
+    const ctHtml = counts.map(c =>
+      `<span>${c.l} <b class="${c.c}">${c.v}</b></span>`
+    ).join('');
+    el.innerHTML = `
+      <div class="mst-bar-bg">
+        <div class="mst-bar ${barCls}" style="width:${pct}%"></div>
+      </div>
+      <div class="mst-row">
+        <div class="mst-ph"><span class="pdot-s ${dotCls}"></span>&nbsp;${esc(phaseText)}</div>
+        <div class="mst-ct">${ctHtml}</div>
+      </div>`;
+    el.classList.remove('hidden');
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     LOGS
+  ════════════════════════════════════════════════════════ */
+  async function loadLogs() {
+    try {
+      const r = await fetch(`${API}/logs`);
+      if (!r.ok) return;
+      logCache   = (await r.json()).logs || [];
+      logCleared = false;
+      renderLogs();
+    } catch {}
+  }
+
+  function renderLogs() {
+    const box = document.getElementById('log-box');
+    if (logCleared || logCache.length === 0) {
+      box.innerHTML = '<div class="log-empty">로그가 없습니다.</div>';
+      return;
+    }
+    box.innerHTML = logCache.map(r => `
+      <div class="log-row ${r.level.toLowerCase()}">
+        <span class="log-t">${esc(r.time)}</span>
+        <span class="log-lv">${esc(r.level)}</span>
+        <span class="log-nm">${esc(r.name)}</span>
+        <span class="log-m">${esc(r.message)}</span>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function clearLogView() { logCleared = true; renderLogs(); }
+
+  /* ═══════════════════════════════════════════════════════
+     DISCLOSURES
+  ════════════════════════════════════════════════════════ */
+  async function loadDisc(page) {
+    discPage = page;
+    const corp = document.getElementById('f-corp').value.trim();
+    const from = document.getElementById('f-from').value;
+    const to   = document.getElementById('f-to').value;
+    const p = new URLSearchParams({ page, page_size: 20 });
+    if (corp) p.set('corp_name', corp);
+    if (from) p.set('date_from', from.replace(/-/g, ''));
+    if (to)   p.set('date_to',   to.replace(/-/g, ''));
+    try {
+      const r = await fetch(`${API}/disclosures?${p}`);
+      if (!r.ok) return;
+      renderDisc(await r.json());
+    } catch {}
+  }
+
+  function renderDisc(d) {
+    const tbody = document.getElementById('disc-tbody');
+    if (!d.items || d.items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="txt-c txt-m" style="padding:24px">데이터가 없습니다.</td></tr>';
+      renderPager(d); return;
+    }
+    tbody.innerHTML = d.items.map(x => `
+      <tr>
+        <td><span class="corp">${esc(x.corp_name)}</span></td>
+        <td>${esc(x.report_nm)}</td>
+        <td>${fmtDate(x.rcept_dt)}</td>
+        <td><span class="chip">${x.chunk_count}</span></td>
+        <td><a class="ext-link" href="${esc(x.dart_url)}" target="_blank" rel="noopener">↗ DART</a></td>
+        <td><button class="btn btn-danger btn-sm"
+          onclick="delDisc('${esc(x.rcept_no)}','${esc(x.corp_name)}')">삭제</button></td>
+      </tr>`).join('');
+    renderPager(d);
+  }
+
+  function renderPager(d) {
+    const el = document.getElementById('pager');
+    const { page, total_pages, total } = d;
+    if (!total) { el.innerHTML = ''; return; }
+    const dis = c => c ? '' : 'disabled';
+    const info = `<span class="pager-info">총 ${num(total)}건</span>`;
+    if (total_pages <= 1) { el.innerHTML = info; return; }
+    el.innerHTML = `${info}
+      <div class="pager-btns">
+        <button class="btn btn-ghost btn-sm" onclick="loadDisc(1)"              ${dis(page>1)}>«</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadDisc(${page-1})"      ${dis(page>1)}>‹</button>
+        <span class="pager-cur">${page} / ${total_pages}</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadDisc(${page+1})"      ${dis(page<total_pages)}>›</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadDisc(${total_pages})" ${dis(page<total_pages)}>»</button>
+      </div>`;
+  }
+
+  async function delDisc(rcept_no, corpName) {
+    if (!confirm(`"${corpName}" 공시를 DB에서 삭제하시겠습니까?\n(${rcept_no})`)) return;
+    try {
+      const r = await fetch(`${API}/disclosures/${encodeURIComponent(rcept_no)}`, { method: 'DELETE' });
+      if (r.status === 404) { alert('이미 삭제된 공시입니다.'); return; }
+      if (!r.ok) throw new Error(await r.text());
+      loadDisc(discPage); loadStats();
+    } catch (e) { alert(`삭제 실패: ${e.message}`); }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SETTINGS — load / save / test / scheduler
+  ════════════════════════════════════════════════════════ */
+  async function loadSettings() {
+    try {
+      const r = await fetch(`${API}/settings`);
+      if (!r.ok) return;
+      const d = await r.json();
+
+      setCheck('n-email', d.notify_email);
+      setCheck('n-slack', d.notify_slack);
+      setCheck('n-kakao', d.notify_kakao);
+      setCheck('a-crawl', d.alert_crawl_done  ?? true);
+      setCheck('a-parse', d.alert_parse_done  ?? true);
+      setCheck('a-error', d.alert_on_error    ?? true);
+      setCheck('a-daily', d.alert_daily_summary ?? true);
+
+      document.getElementById('n-email-addr').value  = d.email_address  || '';
+      document.getElementById('n-kakao-token').value = d.kakao_token    || '';
+
+      const schedOn = d.scheduler_enabled ?? true;
+      document.getElementById('sched-on').checked    = boolVal(schedOn);
+      document.getElementById('sched-h').value       = d.scheduler_hour   ?? 2;
+      document.getElementById('sched-m').value       = d.scheduler_minute ?? 0;
+
+      toggleEmailRow();
+      toggleKakaoRow();
+      updateSchedBadge();
+    } catch {}
+  }
+
+  async function saveSettings() {
+    const payload = {
+      notify_email:        document.getElementById('n-email').checked,
+      notify_slack:        document.getElementById('n-slack').checked,
+      notify_kakao:        document.getElementById('n-kakao').checked,
+      alert_crawl_done:    document.getElementById('a-crawl').checked,
+      alert_parse_done:    document.getElementById('a-parse').checked,
+      alert_on_error:      document.getElementById('a-error').checked,
+      alert_daily_summary: document.getElementById('a-daily').checked,
+      email_address:       document.getElementById('n-email-addr').value.trim(),
+      kakao_token:         document.getElementById('n-kakao-token').value.trim(),
+      scheduler_enabled:   document.getElementById('sched-on').checked,
+      scheduler_hour:      Number(document.getElementById('sched-h').value),
+      scheduler_minute:    Number(document.getElementById('sched-m').value),
+    };
+    try {
+      const r = await fetch(`${API}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error();
+      flashBadge('settings-badge', '✓ 저장됨', 'badge-ok');
+    } catch {
+      flashBadge('settings-badge', '저장 실패', 'badge-err');
+    }
+  }
+
+  async function testNotify(btn) {
+    btn.disabled = true; btn.textContent = '발송 중…';
+    try {
+      const r = await fetch(`${API}/settings/test`, { method: 'POST' });
+      const d = await r.json();
+      const ok  = Object.entries(d.results || {}).filter(([,v]) => v).map(([k]) => k);
+      const bad = Object.entries(d.results || {}).filter(([,v]) => !v).map(([k]) => k);
+      let msg = ok.length  ? `발송 완료: ${ok.join(', ')} ✓` : '활성 채널 없음';
+      if (bad.length) msg += ` | 실패: ${bad.join(', ')}`;
+      showResult('notify-result', msg, ok.length ? 'ok' : 'inf');
+    } catch (e) {
+      showResult('notify-result', `발송 실패: ${e.message}`, 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = '🔔 테스트 발송';
+    }
+  }
+
+  async function runNow(btn) {
+    btn.disabled = true; btn.textContent = '실행 중…';
+    try {
+      const r = await fetch(`${API}/scheduler/daily`, { method: 'POST' });
+      if (r.status === 409) { showResult('run-result', '이미 크롤링이 진행 중입니다.', 'inf'); return; }
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      showResult('run-result', `${d.date} 공시 수집 백그라운드 시작 ✓`, 'ok');
+    } catch (e) {
+      showResult('run-result', `실행 실패: ${e.message}`, 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = '▶ 지금 즉시 실행';
+    }
+  }
+
+  function onSchedToggle()  { updateSchedBadge(); }
+  function toggleEmailRow() {
+    document.getElementById('email-row').classList.toggle('hidden', !document.getElementById('n-email').checked);
+  }
+  function toggleKakaoRow() {
+    document.getElementById('kakao-row').classList.toggle('hidden', !document.getElementById('n-kakao').checked);
+  }
+  function updateSchedBadge() {
+    const on = document.getElementById('sched-on').checked;
+    const el = document.getElementById('sched-badge');
+    el.textContent = on ? '● 활성' : '● 비활성';
+    el.className   = 'badge ' + (on ? 'badge-online' : 'badge-idle');
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     CRAWL STOP
+  ════════════════════════════════════════════════════════ */
+  async function stopCrawl(btn) {
+    btn.disabled = true; btn.textContent = '중지 중…';
+    try {
+      const r = await fetch(`${API}/crawl/stop`, { method: 'POST' });
+      if (r.status === 409) {
+        // 이미 실행 중인 크롤링 없음 — 버튼 숨김
+        btn.classList.add('hidden');
+        return;
+      }
+      if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+      // 중지 요청 성공 — 버튼은 pollStatus가 running=false 되면 숨김
+      btn.textContent = '중지 중…';
+    } catch (e) {
+      alert(`중지 실패: ${e.message}`);
+      btn.disabled = false;
+      btn.textContent = '■ 중지';
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     GPU VM
+  ════════════════════════════════════════════════════════ */
+  async function checkGpuVm() {
+    const el = document.getElementById('gpu-badge');
+    if (!el) return;
+    try {
+      const r = await fetch(`${API}/gpu-vm/status`);
+      const d = await r.json();
+      if (d.configured === false) {
+        el.textContent = '미설정'; el.className = 'badge badge-idle';
+      } else if (d.online) {
+        el.textContent = '● 온라인'; el.className = 'badge badge-online';
+      } else {
+        el.textContent = '● 오프라인'; el.className = 'badge badge-err';
+      }
+    } catch {
+      el.textContent = '● 확인 실패'; el.className = 'badge badge-err';
+    }
+  }
+
+  async function startGpuVm(btn) {
+    btn.disabled = true; btn.textContent = '시작 중…';
+    try {
+      const r = await fetch(`${API}/gpu-vm/start`, { method: 'POST' });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.detail || r.statusText); }
+      const el = document.getElementById('gpu-badge');
+      el.textContent = '● 시작 중…'; el.className = 'badge badge-run';
+      setTimeout(checkGpuVm, 30_000);  // 30초 후 상태 재확인
+    } catch (e) { alert(`GPU VM 시작 실패: ${e.message}`); }
+    finally { btn.disabled = false; btn.textContent = '▶ 시작'; }
+  }
+
+  async function stopGpuVm(btn) {
+    if (!confirm('GPU VM을 중지하시겠습니까?\n진행 중인 파싱 작업이 중단될 수 있습니다.')) return;
+    btn.disabled = true; btn.textContent = '중지 중…';
+    try {
+      const r = await fetch(`${API}/gpu-vm/stop`, { method: 'POST' });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.detail || r.statusText); }
+      const el = document.getElementById('gpu-badge');
+      el.textContent = '● 중지 중…'; el.className = 'badge badge-idle';
+      setTimeout(checkGpuVm, 15_000);
+    } catch (e) { alert(`GPU VM 중지 실패: ${e.message}`); }
+    finally { btn.disabled = false; btn.textContent = '■ 중지'; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     공시 유형 체크박스
+  ════════════════════════════════════════════════════════ */
+  function toggleAllTypes(cb) {
+    document.querySelectorAll('.pblntf-chk').forEach(el => { el.checked = cb.checked; });
+  }
+
+  document.addEventListener('change', e => {
+    if (e.target.classList.contains('pblntf-chk')) {
+      const all = [...document.querySelectorAll('.pblntf-chk')];
+      const allChk = document.getElementById('pt-all');
+      if (allChk) allChk.checked = all.every(x => x.checked);
+    }
+  });
+
+  /* helpers */
+  function boolVal(v) { return v === true || v === 'true'; }
+  function setCheck(id, val) { document.getElementById(id).checked = boolVal(val); }
+  function showResult(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = `notify-result ${type}`; el.classList.remove('hidden');
+  }
+  function flashBadge(id, text, cls) {
+    const el = document.getElementById(id);
+    el.textContent = text; el.className = `badge ${cls}`; el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3000);
+  }
+
+  function debounceFilter() {
+    clearTimeout(filterTimer);
+    filterTimer = setTimeout(() => loadDisc(1), 400);
+  }
+  function resetFilter() {
+    document.getElementById('f-corp').value = '';
+    document.getElementById('f-from').value = '';
+    document.getElementById('f-to').value   = '';
+    loadDisc(1);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     DART API QUOTA
+  ════════════════════════════════════════════════════════ */
+  async function loadQuota() {
+    try {
+      const r = await fetch(`${API}/dart/quota`);
+      if (!r.ok) return;
+      const d = await r.json();
+
+      document.getElementById('q-used').textContent      = num(d.used);
+      document.getElementById('q-remain').textContent    = num(d.remaining);
+      document.getElementById('q-limit-disp').textContent= num(d.limit);
+      document.getElementById('q-limit-inp').placeholder = d.limit;
+
+      // 날짜 포맷 (YYYYMMDD → YYYY-MM-DD)
+      const dt = String(d.date || '');
+      document.getElementById('q-date').textContent =
+        dt.length === 8 ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : dt || '—';
+
+      // 프로그레스 바
+      const pct = d.limit > 0 ? Math.min(100, Math.round(d.used / d.limit * 100)) : 0;
+      document.getElementById('q-pct').textContent   = pct + '%';
+      const bar = document.getElementById('q-bar');
+      bar.style.width = pct + '%';
+      if (pct >= 90)      bar.style.background = 'var(--red)';
+      else if (pct >= 70) bar.style.background = 'var(--yellow)';
+      else                bar.style.background = '';
+
+      // 한도 도달 시 레이블 강조
+      const lbl = document.getElementById('q-bar-label');
+      lbl.textContent = pct >= 100 ? '⚠ 한도 도달 — 내일 이어서 실행하세요' : '사용률';
+      lbl.style.color = pct >= 90 ? 'var(--red)' : '';
+    } catch { /* silently ignore */ }
+  }
+
+  async function setQuotaLimit() {
+    const val = parseInt(document.getElementById('q-limit-inp').value, 10);
+    if (!val || val <= 0) {
+      showResult('q-result', '올바른 양의 정수를 입력하세요.', 'err');
+      return;
+    }
+    try {
+      const r = await fetch(`${API}/dart/quota`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: val }),
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.detail || '오류'); }
+      const d = await r.json();
+      showResult('q-result', d.message, 'ok');
+      loadQuota();
+    } catch (e) {
+      showResult('q-result', `변경 실패: ${e.message}`, 'err');
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     UTILITIES
+  ════════════════════════════════════════════════════════ */
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function num(n)  { return Number(n).toLocaleString('ko-KR'); }
+  function fmtDate(d) {
+    if (!d || d.length !== 8) return d || '—';
+    return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+  }
+  function fmtTs(s) {
+    if (!s) return '—';
+    if (s.length === 14)
+      return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+    return s.slice(0, 16);
+  }
+</script>
+</body>
+</html>

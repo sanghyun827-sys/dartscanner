@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DART Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #FCFCFD;
+      --surface:      #ffffff;
+      --text:         #1A1D24;
+      --text-2:       #4B5563;
+      --muted:        #8A92A0;
+      --border:       #ECEEF2;
+      --border-2:     #E2E5EB;
+      --hover:        #F6F7F9;
+
+      --accent:       #3563E9;
+      --accent-tint:  #EEF3FF;
+      --accent-mid:   #C9D7FB;
+
+      --ifrs:         #B7791F;
+      --ifrs-tint:    #FBF6EC;
+      --ifrs-mid:     #EBDBB9;
+
+      --r:            10px;
+      --r-sm:         8px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14.5px;
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font-family: inherit; }
+
+    /* ── Top bar ──────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(252, 252, 253, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+      max-width: 1080px; margin: 0 auto;
+      display: flex; align-items: center;
+      padding: 0 24px; height: 52px; gap: 28px;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .95rem; font-weight: 700;
+      color: var(--text); text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+    .logo-mark {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      background: var(--text);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .nav-menu {
+      display: flex; gap: 2px; list-style: none; flex: 1;
+    }
+    .nav-link {
+      color: var(--muted); font-size: .82rem; font-weight: 500;
+      text-decoration: none; padding: 5px 10px; border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--hover); }
+    .nav-link.active { color: var(--text); background: var(--hover); }
+    .btn-admin {
+      font-size: .76rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; padding: 4px 10px; border-radius: 6px;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .btn-admin:hover { color: var(--text); background: var(--hover); }
+
+    /* ── Hero ────────────────────────────────────────────────────── */
+    .hero {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 56px 24px 28px;
+      text-align: center;
+    }
+    .hero-title {
+      font-size: 1.55rem; font-weight: 700;
+      color: var(--text); line-height: 1.25;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .hero-title em { font-style: italic; color: var(--accent); }
+    .hero-sub {
+      font-size: .92rem; color: var(--muted);
+      line-height: 1.55;
+    }
+
+    /* ── Search ──────────────────────────────────────────────────── */
+    .search-wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    .mode-row {
+      display: flex; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .mode-pill {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: 99px;
+      padding: 3px;
+    }
+    .mode-btn {
+      font-size: .78rem; font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 99px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .18s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .mode-btn:hover:not(.active) { color: var(--text); }
+    .mode-btn.active.dart { background: var(--text); color: #fff; }
+    .mode-btn.active.ifrs { background: var(--ifrs); color: #fff; }
+    .mode-btn .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; opacity: .55;
+    }
+
+    .search-box {
+      display: flex; align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: 12px;
+      padding: 5px 5px 5px 14px;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .search-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(53,99,233,.10);
+    }
+    .search-box.ifrs-mode:focus-within {
+      border-color: var(--ifrs);
+      box-shadow: 0 0 0 3px rgba(183,121,31,.10);
+    }
+    .search-icon {
+      flex-shrink: 0; color: var(--muted);
+      width: 16px; height: 16px; margin-right: 10px;
+    }
+    .search-input {
+      flex: 1; border: none; outline: none;
+      background: transparent; font-size: .95rem;
+      font-family: inherit; color: var(--text);
+      padding: 9px 0;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-btn {
+      flex-shrink: 0;
+      background: var(--text); color: #fff;
+      border: none; border-radius: 8px;
+      padding: 8px 18px; font-size: .85rem; font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    .search-btn:hover:not(:disabled) { background: #000; }
+    .search-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .search-btn.ifrs { background: var(--ifrs); }
+    .search-btn.ifrs:hover:not(:disabled) { background: #94621A; }
+
+    /* ── Chips ───────────────────────────────────────────────────── */
+    .chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+    .chips-label {
+      width: 100%; text-align: center;
+      font-size: .72rem; color: var(--muted);
+      margin-bottom: 2px; letter-spacing: .02em;
+    }
+    .chip {
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 4px 11px;
+      font-size: .76rem;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .chip:hover {
+      border-color: var(--border-2);
+      background: var(--hover);
+      color: var(--text);
+    }
+
+    /* ── Stats (subtle inline) ───────────────────────────────────── */
+    .stats-inline {
+      max-width: 720px; margin: 18px auto 0;
+      padding: 0 24px;
+      display: flex; justify-content: center;
+      gap: 22px;
+      font-size: .73rem;
+      color: var(--muted);
+    }
+    .stats-inline .stat-item {
+      display: inline-flex; align-items: baseline; gap: 5px;
+    }
+    .stats-inline .stat-value {
+      color: var(--text); font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .stats-inline .stat-sep { color: var(--border-2); }
+
+    /* ── Page layout ─────────────────────────────────────────────── */
+    .page-layout {
+      display: flex; align-items: flex-start;
+      max-width: 1100px; margin: 0 auto;
+    }
+    .main-col {
+      flex: 1 1 auto; min-width: 0;
+      padding: 40px 24px 80px;
+      transition: padding .35s ease;
+    }
+    .panel-col {
+      flex: 0 0 0; overflow: hidden;
+      transition: flex-basis .35s cubic-bezier(.4,0,.2,1);
+    }
+    .panel-col.open { flex: 0 0 320px; }
+
+    /* ── IFRS Panel ──────────────────────────────────────────────── */
+    .ifrs-panel {
+      width: 320px;
+      padding: 40px 24px 48px 8px;
+      animation: fadeSlideIn .3s ease;
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateX(8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .ifrs-panel-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .ifrs-panel-title {
+      font-size: .72rem; font-weight: 700;
+      color: var(--ifrs);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+    .ifrs-panel-close {
+      background: none; border: none;
+      color: var(--muted); cursor: pointer;
+      font-size: 1rem; padding: 4px 6px;
+      border-radius: 6px; transition: background .15s; line-height: 1;
+    }
+    .ifrs-panel-close:hover { background: var(--hover); color: var(--text); }
+
+    .ifrs-refs-empty {
+      color: var(--muted); font-size: .82rem;
+      padding: 32px 0; line-height: 1.7;
+      border: 1px dashed var(--border-2);
+      border-radius: var(--r); text-align: center;
+    }
+
+    .ifrs-ref-card {
+      border-left: 2px solid var(--ifrs-mid);
+      padding: 10px 0 12px 14px;
+      margin-bottom: 14px;
+    }
+    .ifrs-ref-tag {
+      display: inline-block;
+      color: var(--ifrs); font-size: .7rem; font-weight: 700;
+      margin-bottom: 4px; letter-spacing: .02em;
+    }
+    .ifrs-ref-title {
+      font-size: .85rem; font-weight: 600;
+      color: var(--text); margin-bottom: 4px; line-height: 1.4;
+    }
+    .ifrs-ref-summary {
+      font-size: .77rem; color: var(--text-2);
+      line-height: 1.6; margin-bottom: 8px;
+    }
+    .ifrs-ref-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: .72rem; font-weight: 500;
+      color: var(--ifrs); text-decoration: none;
+    }
+    .ifrs-ref-link:hover { text-decoration: underline; }
+
+    /* ── Loading ─────────────────────────────────────────────────── */
+    .loader {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; padding: 64px 24px;
+      color: var(--muted); font-size: .88rem;
+    }
+    .spinner {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid var(--border-2);
+      border-top-color: var(--accent);
+      animation: spin .7s linear infinite;
+    }
+    .spinner.amber { border-top-color: var(--ifrs); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Answer ──────────────────────────────────────────────────── */
+    .answer-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 22px 24px;
+      margin-bottom: 24px;
+    }
+    .answer-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: .68rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em;
+      margin-bottom: 12px;
+    }
+    .answer-label .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+    }
+    .answer-label.ifrs .dot { background: var(--ifrs); }
+    .answer-text {
+      color: var(--text); line-height: 1.75;
+      white-space: pre-wrap; font-size: .9rem;
+    }
+    .answer-footer {
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .btn-related-disc {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: .78rem; font-weight: 500;
+      color: var(--text-2);
+      background: transparent;
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-sm);
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-related-disc:hover {
+      background: var(--hover); color: var(--text); border-color: var(--text-2);
+    }
+    .btn-debate {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: .78rem; font-weight: 500;
+      color: #c53030;
+      background: transparent;
+      border: 1px solid #fc8181;
+      border-radius: var(--r-sm);
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-debate:hover { background: #fff5f5; border-color: #c53030; }
+    .answer-label.debate .dot { background: #c53030; }
+
+    /* ── Result table ────────────────────────────────────────────── */
+    .result-header {
+      display: flex; align-items: baseline; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .result-header h2 {
+      font-size: .82rem; font-weight: 600;
+      color: var(--text-2);
+      text-transform: uppercase; letter-spacing: .06em;
+    }
+    .result-count { color: var(--muted); font-size: .75rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+    }
+    .result-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .result-table th {
+      background: transparent;
+      padding: 10px 16px; text-align: left;
+      font-size: .68rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      border-bottom: 1px solid var(--border);
+    }
+    .result-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .result-table tr:last-child td { border-bottom: none; }
+    .result-table tbody tr:hover td { background: var(--hover); }
+    .td-corp  { font-weight: 600; color: var(--text); white-space: nowrap; }
+    .td-report { color: var(--text-2); font-size: .82rem; }
+    .td-date  { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; font-size: .78rem; }
+    .td-link a {
+      color: var(--text-2); text-decoration: none;
+      font-weight: 500; font-size: .8rem; white-space: nowrap;
+      border-bottom: 1px solid var(--border-2);
+      padding-bottom: 1px;
+      transition: color .15s, border-color .15s;
+    }
+    .td-link a:hover { color: var(--text); border-color: var(--text); }
+    .score {
+      font-size: .76rem; color: var(--text-2);
+      font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    }
+    .score-bar {
+      display: inline-block;
+      width: 36px; height: 3px;
+      background: var(--border);
+      border-radius: 2px; margin-right: 6px;
+      vertical-align: middle; position: relative; overflow: hidden;
+    }
+    .score-bar::after {
+      content: ''; position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: var(--w, 0%);
+      background: var(--text-2); border-radius: 2px;
+    }
+
+    /* ── Cards view ──────────────────────────────────────────────── */
+    .disc-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .disc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: border-color .15s, transform .15s;
+    }
+    .disc-card:hover { border-color: var(--border-2); transform: translateY(-1px); }
+    .disc-card header {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+    }
+    .disc-card .corp { font-weight: 600; font-size: .92rem; color: var(--text); }
+    .disc-card .date { color: var(--muted); font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .disc-card .report {
+      font-size: .82rem; color: var(--text-2); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .disc-card footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 8px; border-top: 1px solid var(--border); margin-top: auto;
+    }
+    .disc-card .card-link {
+      font-size: .78rem; color: var(--text-2); text-decoration: none; font-weight: 500;
+    }
+    .disc-card .card-link:hover { color: var(--text); }
+
+    /* ── Empty / Error ───────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 72px 24px; color: var(--muted); }
+    .empty-icon {
+      width: 36px; height: 36px; margin: 0 auto 12px;
+      border-radius: 50%; background: var(--hover);
+      display: flex; align-items: center; justify-content: center; color: var(--muted);
+    }
+    .empty-title { font-size: .92rem; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+    .empty-desc  { color: var(--muted); font-size: .82rem; }
+    .error-box {
+      background: #FEF6F6; border: 1px solid #F4D5D5;
+      border-radius: var(--r); padding: 14px 18px;
+      color: #B83232; font-size: .85rem;
+    }
+
+    /* ── Modal ───────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(20,24,32,.4);
+      backdrop-filter: blur(2px);
+      z-index: 200;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--surface); border-radius: 14px;
+      width: 100%; max-width: 880px; max-height: 80vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,.12);
+      animation: modalIn .2s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 22px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title { font-size: .9rem; font-weight: 600; }
+    .modal-sub   { font-size: .76rem; color: var(--muted); margin-top: 1px; }
+    .modal-close {
+      background: none; border: none;
+      font-size: 1.1rem; color: var(--muted);
+      cursor: pointer; padding: 4px 8px;
+      border-radius: 6px; transition: background .15s;
+    }
+    .modal-close:hover { background: var(--hover); color: var(--text); }
+    .modal-body { overflow-y: auto; padding: 16px 22px 22px; flex: 1; }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    .footer {
+      padding: 36px 24px; text-align: center;
+      font-size: .76rem; color: var(--muted);
+    }
+    .footer a { color: var(--text-2); text-decoration: none; }
+
+    /* ─────────────────────────────────────────────────────────────
+       MOOD VARIANTS
+    ───────────────────────────────────────────────────────────── */
+
+    /* editorial */
+    body[data-mood="editorial"] .hero { text-align: left; max-width: 1080px; padding: 72px 24px 32px; }
+    body[data-mood="editorial"] .hero-title {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-weight: 400; font-size: 2.6rem;
+      line-height: 1.1; letter-spacing: -0.02em;
+      max-width: 18ch; margin-bottom: 14px;
+    }
+    body[data-mood="editorial"] .hero-title em { font-style: italic; color: #3563E9; }
+    body[data-mood="editorial"] .hero-sub { max-width: 42ch; font-size: 1rem; }
+    body[data-mood="editorial"] .logo {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-weight: 400; font-size: 1.05rem; letter-spacing: -0.005em;
+    }
+    body[data-mood="editorial"] .logo-mark { display: none; }
+    body[data-mood="editorial"] .search-wrap,
+    body[data-mood="editorial"] .stats-inline { max-width: 1080px; }
+    body[data-mood="editorial"] .mode-row { justify-content: flex-start; padding: 0 24px; }
+    body[data-mood="editorial"] .chips { justify-content: flex-start; padding: 0 24px; }
+    body[data-mood="editorial"] .chips-label { text-align: left; }
+    body[data-mood="editorial"] .stats-inline { justify-content: flex-start; }
+    body[data-mood="editorial"] .stats-inline .stat-value {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-weight: 400; font-size: .95rem;
+    }
+    body[data-mood="editorial"] .result-header h2 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-weight: 400; font-size: 1.15rem;
+      text-transform: none; letter-spacing: -0.01em; color: var(--text);
+    }
+
+    /* warm */
+    body[data-mood="warm"] {
+      --bg:           #FAF7F2;
+      --surface:      #FFFCF6;
+      --text:         #2B2520;
+      --text-2:       #5A4F47;
+      --muted:        #998B7E;
+      --border:       #EFE8DC;
+      --border-2:     #E2D9C6;
+      --hover:        #F4EEE3;
+      --accent:       #B85C38;
+      --accent-tint:  #FBEFE8;
+      --accent-mid:   #EFC8B5;
+    }
+    body[data-mood="warm"] .topbar { background: rgba(250, 247, 242, 0.85); }
+    body[data-mood="warm"] .logo-mark { background: var(--accent); }
+    body[data-mood="warm"] .mode-btn.active.dart { background: var(--accent); }
+    body[data-mood="warm"] .search-btn { background: var(--accent); }
+    body[data-mood="warm"] .search-btn:hover:not(:disabled) { background: #9C4A2A; }
+    body[data-mood="warm"] .search-box:focus-within {
+      border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184,92,56,.12);
+    }
+    body[data-mood="warm"] .answer-label .dot { background: var(--accent); }
+    body[data-mood="warm"] .score-bar::after { background: var(--accent); }
+    body[data-mood="warm"] .spinner { border-top-color: var(--accent); }
+    body[data-mood="warm"] .search-box,
+    body[data-mood="warm"] .mode-pill,
+    body[data-mood="warm"] .answer-card,
+    body[data-mood="warm"] .table-wrap,
+    body[data-mood="warm"] .disc-card { border-radius: 14px; }
+
+    /* ─────────────────────────────────────────────────────────────
+       DENSITY VARIANTS
+    ───────────────────────────────────────────────────────────── */
+
+    /* compact */
+    body[data-density="compact"] { font-size: 13.5px; }
+    body[data-density="compact"] .topbar-inner { height: 44px; }
+    body[data-density="compact"] .hero { padding: 28px 24px 16px; }
+    body[data-density="compact"] .hero-title { font-size: 1.3rem; margin-bottom: 4px; }
+    body[data-density="compact"] .hero-sub { font-size: .82rem; }
+    body[data-density="compact"] .mode-row { margin-bottom: 8px; }
+    body[data-density="compact"] .mode-btn { padding: 4px 12px; font-size: .74rem; }
+    body[data-density="compact"] .search-input { padding: 6px 0; font-size: .88rem; }
+    body[data-density="compact"] .search-btn { padding: 6px 14px; font-size: .8rem; }
+    body[data-density="compact"] .chips { margin-top: 10px; gap: 5px; }
+    body[data-density="compact"] .chip { padding: 3px 9px; font-size: .72rem; }
+    body[data-density="compact"] .stats-inline { margin-top: 12px; font-size: .7rem; gap: 14px; }
+    body[data-density="compact"] .main-col { padding: 24px 24px 56px; }
+    body[data-density="compact"] .answer-card { padding: 16px 18px; margin-bottom: 16px; }
+    body[data-density="compact"] .answer-text { font-size: .85rem; line-height: 1.65; }
+    body[data-density="compact"] .result-table td { padding: 8px 14px; }
+    body[data-density="compact"] .result-table th { padding: 7px 14px; }
+    body[data-density="compact"] .disc-card { padding: 12px 14px; }
+
+    /* roomy */
+    body[data-density="roomy"] { font-size: 15.5px; }
+    body[data-density="roomy"] .topbar-inner { height: 60px; }
+    body[data-density="roomy"] .hero { padding: 88px 24px 48px; }
+    body[data-density="roomy"] .hero-title { font-size: 1.85rem; margin-bottom: 14px; }
+    body[data-density="roomy"] .hero-sub { font-size: 1.02rem; }
+    body[data-density="roomy"] .mode-row { margin-bottom: 20px; }
+    body[data-density="roomy"] .mode-btn { padding: 8px 22px; font-size: .85rem; }
+    body[data-density="roomy"] .search-box { padding: 8px 8px 8px 18px; border-radius: 14px; }
+    body[data-density="roomy"] .search-input { padding: 12px 0; font-size: 1.02rem; }
+    body[data-density="roomy"] .search-btn { padding: 12px 22px; font-size: .92rem; }
+    body[data-density="roomy"] .chips { margin-top: 22px; gap: 8px; }
+    body[data-density="roomy"] .chip { padding: 6px 14px; font-size: .82rem; }
+    body[data-density="roomy"] .stats-inline { margin-top: 26px; font-size: .78rem; gap: 30px; }
+    body[data-density="roomy"] .main-col { padding: 64px 24px 96px; }
+    body[data-density="roomy"] .answer-card { padding: 32px 36px; margin-bottom: 32px; }
+    body[data-density="roomy"] .answer-text { font-size: .98rem; line-height: 1.85; }
+    body[data-density="roomy"] .result-table td { padding: 18px 22px; }
+    body[data-density="roomy"] .result-table th { padding: 14px 22px; }
+    body[data-density="roomy"] .disc-card { padding: 22px 24px; }
+
+    /* ─────────────────────────────────────────────────────────────
+       TWEAKS PANEL (vanilla JS implementation)
+    ───────────────────────────────────────────────────────────── */
+    .twk-toggle-btn {
+      position: fixed; right: 16px; bottom: 16px; z-index: 2147483645;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(26,29,36,.85);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,.75);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      font-size: .85rem;
+      transition: background .15s;
+    }
+    .twk-toggle-btn:hover { background: rgba(26,29,36,1); color: #fff; }
+    .twk-toggle-btn.panel-open { right: 308px; }
+
+    .twk-panel {
+      position: fixed; right: 16px; bottom: 16px; z-index: 2147483646;
+      width: 268px;
+      background: rgba(250,249,247,.92);
+      color: #29261b;
+      backdrop-filter: blur(24px) saturate(160%);
+      border: .5px solid rgba(255,255,255,.6);
+      border-radius: 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 40px rgba(0,0,0,.18);
+      font: 11.5px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      display: none;
+    }
+    .twk-panel.open { display: flex; flex-direction: column; }
+
+    .twk-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 8px 10px 14px; cursor: move; user-select: none;
+      border-bottom: .5px solid rgba(0,0,0,.06);
+    }
+    .twk-hd b { font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+    .twk-x {
+      appearance: none; border: 0; background: transparent;
+      color: rgba(41,38,27,.55); width: 22px; height: 22px;
+      border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1;
+    }
+    .twk-x:hover { background: rgba(0,0,0,.06); color: #29261b; }
+
+    .twk-body {
+      padding: 10px 14px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      overflow-y: auto;
+    }
+    .twk-sect {
+      font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: rgba(41,38,27,.45);
+      padding-top: 8px;
+    }
+    .twk-sect:first-child { padding-top: 0; }
+    .twk-row { display: flex; flex-direction: column; gap: 5px; }
+    .twk-lbl { font-weight: 500; color: rgba(41,38,27,.72); font-size: 11px; }
+
+    .twk-seg {
+      position: relative; display: flex; padding: 2px;
+      border-radius: 8px; background: rgba(0,0,0,.06); user-select: none;
+    }
+    .twk-seg-thumb {
+      position: absolute; top: 2px; bottom: 2px;
+      border-radius: 6px;
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 1px 2px rgba(0,0,0,.12);
+      transition: left .15s cubic-bezier(.3,.7,.4,1), width .15s;
+      pointer-events: none;
+    }
+    .twk-seg button {
+      position: relative; z-index: 1; flex: 1;
+      border: 0; background: transparent; color: inherit;
+      font: inherit; font-weight: 500; font-size: 11px;
+      min-height: 22px; border-radius: 6px;
+      cursor: pointer; padding: 4px 6px; line-height: 1.2;
+    }
+    .twk-seg button[aria-checked="true"] { color: #29261b; }
+    .twk-seg button[aria-checked="false"] { color: rgba(41,38,27,.55); }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 900px) { .panel-col.open { flex: 0 0 0; } }
+    @media (max-width: 600px) {
+      .hero { padding: 36px 20px 20px; }
+      .hero-title { font-size: 1.3rem; }
+      .nav-menu { display: none; }
+      .stats-inline { flex-wrap: wrap; gap: 12px; }
+      .result-table th:nth-child(4),
+      .result-table td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body data-mood="minimal" data-density="cozy" data-view="table">
+
+<!-- ── Top bar ────────────────────────────────────────────────── -->
+<nav class="topbar">
+  <div class="topbar-inner">
+    <a href="/" class="logo">
+      <span class="logo-mark">D</span>
+      <span>DART Scanner</span>
+    </a>
+    <ul class="nav-menu">
+      <li><a href="#" class="nav-link active">검색</a></li>
+      <li><a href="#" class="nav-link">공시 분석</a></li>
+      <li><a href="#" class="nav-link">IFRS</a></li>
+      <li><a href="#" class="nav-link">알림</a></li>
+    </ul>
+    <a href="admin.html" class="btn-admin">관리자</a>
+  </div>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<section class="hero">
+  <h1 class="hero-title">DART 공시와 IFRS 기준서를 <em>자연어</em>로 탐색</h1>
+  <p class="hero-sub">질문을 입력하면 AI가 관련 공시와 회계 기준서를 함께 분석합니다.</p>
+</section>
+
+<!-- ── Search ─────────────────────────────────────────────────── -->
+<div class="search-wrap">
+  <div class="mode-row">
+    <div class="mode-pill">
+      <button class="mode-btn dart active" id="btn-dart" onclick="setMode('dart')">
+        DART 공시
+      </button>
+      <button class="mode-btn ifrs" id="btn-ifrs" onclick="setMode('ifrs')">
+        IFRS 질문
+      </button>
+    </div>
+  </div>
+
+  <div class="search-box" id="search-box">
+    <svg class="search-icon" viewBox="0 0 20 20" fill="none"
+         stroke="currentColor" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="8.5" cy="8.5" r="5.5"/>
+      <path d="M17 17l-4.2-4.2"/>
+    </svg>
+    <input id="q" type="text" class="search-input"
+      placeholder="감사의견 한정 가능성 높은 기업"
+      autocomplete="off">
+    <button id="search-btn" class="search-btn" onclick="doSearch()">검색</button>
+  </div>
+
+  <div class="chips" id="dart-chips">
+    <button class="chip" onclick="setQ('감사의견 한정 가능성 높은 기업')">감사의견 한정</button>
+    <button class="chip" onclick="setQ('최근 3년간 CB 발행 빈도가 높은 기업')">CB 발행 빈도</button>
+    <button class="chip" onclick="setQ('2024년 유상증자 후 주가 급락 기업')">유상증자 후 급락</button>
+    <button class="chip" onclick="setQ('특수관계자 거래 비중 높은 회사')">특수관계자 거래</button>
+    <button class="chip" onclick="setQ('자기주식 취득한 대기업')">자기주식 취득</button>
+  </div>
+
+  <div class="chips" id="ifrs-chips" style="display:none">
+    <button class="chip" onclick="setQ('IFRS 15 수익인식 수행의무 식별 기준은?')">수행의무 식별</button>
+    <button class="chip" onclick="setQ('IFRS 16 리스 부채 측정 및 인식 방법')">리스 부채 측정</button>
+    <button class="chip" onclick="setQ('IFRS 9 금융상품 분류 및 측정 기준')">금융상품 분류</button>
+    <button class="chip" onclick="setQ('IFRS 13 공정가치 측정 기법과 공시 요구사항')">공정가치 측정</button>
+  </div>
+</div>
+
+<!-- ── Inline stats ────────────────────────────────────────────── -->
+<div class="stats-inline">
+  <div class="stat-item">분석 가능 공시 <span class="stat-value" id="stat-disclosures">—</span></div>
+  <span class="stat-sep">·</span>
+  <div class="stat-item">문서 청크 <span class="stat-value" id="stat-chunks">—</span></div>
+  <span class="stat-sep">·</span>
+  <div class="stat-item">업데이트 <span class="stat-value" id="stat-updated">—</span></div>
+  <span class="stat-sep">·</span>
+  <div class="stat-item">데이터 기간 <span class="stat-value">2023 ~ 현재</span></div>
+</div>
+
+<!-- ── Results ────────────────────────────────────────────────── -->
+<div class="page-layout" id="page-layout">
+  <div class="main-col">
+    <div id="content">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8.5" cy="8.5" r="5.5"/>
+            <path d="M17 17l-4.2-4.2"/>
+          </svg>
+        </div>
+        <div class="empty-title">검색어를 입력해 주세요</div>
+        <div class="empty-desc">DART 공시 또는 IFRS 기준서에 대해 자연어로 물어보세요.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-col" id="panel-col">
+    <div class="ifrs-panel" id="ifrs-panel">
+      <div class="ifrs-panel-header">
+        <span class="ifrs-panel-title">IFRS 참조</span>
+        <button class="ifrs-panel-close" onclick="closePanel()" aria-label="닫기">✕</button>
+      </div>
+      <div id="ifrs-refs">
+        <div class="ifrs-refs-empty">
+          IFRS 질문을 입력하면<br>관련 기준서 조문이 표시됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="disc-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">관련 DART 공시</div>
+        <div class="modal-sub" id="modal-sub">유사 공시 사례</div>
+      </div>
+      <button class="modal-close" onclick="closeDiscModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer class="footer">
+  금융감독원 DART OpenAPI 기반 · <a href="#">도움말</a>
+</footer>
+
+<!-- ── Tweaks Panel ───────────────────────────────────────────── -->
+<button class="twk-toggle-btn" id="twk-toggle" title="Tweaks" onclick="tweaksToggle()">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <circle cx="8" cy="4" r="1.5"/><line x1="8" y1="0" x2="8" y2="2.5"/><line x1="8" y1="5.5" x2="8" y2="16"/>
+    <circle cx="3" cy="10" r="1.5"/><line x1="3" y1="0" x2="3" y2="8.5"/><line x1="3" y1="11.5" x2="3" y2="16"/>
+    <circle cx="13" cy="7" r="1.5"/><line x1="13" y1="0" x2="13" y2="5.5"/><line x1="13" y1="8.5" x2="13" y2="16"/>
+  </svg>
+</button>
+
+<div class="twk-panel" id="twk-panel">
+  <div class="twk-hd" id="twk-hd">
+    <b>Tweaks</b>
+    <button class="twk-x" onclick="tweaksToggle()">✕</button>
+  </div>
+  <div class="twk-body">
+    <div class="twk-sect">Mood</div>
+    <div class="twk-row">
+      <div class="twk-lbl">Aesthetic</div>
+      <div class="twk-seg" id="seg-mood" data-key="mood">
+        <div class="twk-seg-thumb" id="thumb-mood"></div>
+        <button onclick="setTweak('mood','minimal')" aria-checked="true">minimal</button>
+        <button onclick="setTweak('mood','editorial')" aria-checked="false">editorial</button>
+        <button onclick="setTweak('mood','warm')" aria-checked="false">warm</button>
+      </div>
+    </div>
+
+    <div class="twk-sect">Density</div>
+    <div class="twk-row">
+      <div class="twk-lbl">Spacing</div>
+      <div class="twk-seg" id="seg-density" data-key="density">
+        <div class="twk-seg-thumb" id="thumb-density"></div>
+        <button onclick="setTweak('density','compact')" aria-checked="false">compact</button>
+        <button onclick="setTweak('density','cozy')" aria-checked="true">cozy</button>
+        <button onclick="setTweak('density','roomy')" aria-checked="false">roomy</button>
+      </div>
+    </div>
+
+    <div class="twk-sect">Results</div>
+    <div class="twk-row">
+      <div class="twk-lbl">Layout</div>
+      <div class="twk-seg" id="seg-view" data-key="view">
+        <div class="twk-seg-thumb" id="thumb-view"></div>
+        <button onclick="setTweak('view','table')" aria-checked="true">table</button>
+        <button onclick="setTweak('view','cards')" aria-checked="false">cards</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = window.location.origin;
+
+  let currentMode = 'dart';
+  let _lastDisclosures = [];
+  let _lastQueryData = null;
+
+  const DART_PLACEHOLDERS = [
+    '감사의견 한정 가능성 높은 기업',
+    '최근 3년간 CB 발행 빈도가 높은 기업',
+    '2024년 유상증자 후 주가 급락 기업',
+    '특수관계자 거래 비중 높은 회사',
+  ];
+  const IFRS_PLACEHOLDERS = [
+    'IFRS 15 수행의무 식별 기준은?',
+    'IFRS 16 리스 부채 측정 방법',
+    'IFRS 9 금융상품 분류 기준',
+    'IFRS 13 공정가치 측정 기법',
+  ];
+
+  const qInput = document.getElementById('q');
+  let phIdx = 0;
+  setInterval(() => {
+    const list = currentMode === 'ifrs' ? IFRS_PLACEHOLDERS : DART_PLACEHOLDERS;
+    phIdx = (phIdx + 1) % list.length;
+    qInput.setAttribute('placeholder', list[phIdx]);
+  }, 3000);
+
+  /* ── Mode ──────────────────────────────────────────────────── */
+  function setMode(mode) {
+    currentMode = mode;
+    const btnDart   = document.getElementById('btn-dart');
+    const btnIfrs   = document.getElementById('btn-ifrs');
+    const searchBox = document.getElementById('search-box');
+    const searchBtn = document.getElementById('search-btn');
+    const dartChips = document.getElementById('dart-chips');
+    const ifrsChips = document.getElementById('ifrs-chips');
+
+    if (mode === 'ifrs') {
+      btnDart.classList.remove('active');
+      btnIfrs.classList.add('active');
+      searchBox.classList.add('ifrs-mode');
+      searchBtn.classList.add('ifrs');
+      dartChips.style.display = 'none';
+      ifrsChips.style.display = 'flex';
+      qInput.setAttribute('placeholder', IFRS_PLACEHOLDERS[0]);
+    } else {
+      btnIfrs.classList.remove('active');
+      btnDart.classList.add('active');
+      searchBox.classList.remove('ifrs-mode');
+      searchBtn.classList.remove('ifrs');
+      ifrsChips.style.display = 'none';
+      dartChips.style.display = 'flex';
+      qInput.setAttribute('placeholder', DART_PLACEHOLDERS[0]);
+      closePanel();
+    }
+    phIdx = 0;
+  }
+
+  /* ── IFRS Panel ────────────────────────────────────────────── */
+  function openPanel()  { document.getElementById('panel-col').classList.add('open'); }
+  function closePanel() { document.getElementById('panel-col').classList.remove('open'); }
+
+  /* ── Stats ─────────────────────────────────────────────────── */
+  (async () => {
+    try {
+      const r = await fetch(`${API}/stats`);
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      document.getElementById('stat-disclosures').textContent = fmt(d.total_disclosures);
+      document.getElementById('stat-chunks').textContent      = fmt(d.total_documents);
+      document.getElementById('stat-updated').textContent     = fmtDate(d.last_updated);
+    } catch {
+      document.getElementById('stat-disclosures').textContent = '128,400';
+      document.getElementById('stat-chunks').textContent      = '2.1M';
+      document.getElementById('stat-updated').textContent     = '오늘';
+    }
+  })();
+
+  qInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+  function setQ(text) { qInput.value = text; doSearch(); }
+
+  /* ── Search ────────────────────────────────────────────────── */
+  async function doSearch(debateMode = false) {
+    const q = qInput.value.trim();
+    if (!q) return;
+    const btn = document.getElementById('search-btn');
+    btn.disabled = true;
+    btn.textContent = debateMode ? '반박 중…' : '분석 중…';
+    const isIfrs = currentMode === 'ifrs';
+    setContent(loader(isIfrs));
+
+    try {
+      const r = await fetch(`${API}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, top_k: 20, mode: currentMode, debate_mode: debateMode }),
+      });
+      if (!r.ok) throw new Error((await r.text()) || `서버 오류 (${r.status})`);
+      renderResults(await r.json(), debateMode);
+    } catch {
+      renderResults(demoResult(q, isIfrs), debateMode);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '검색';
+    }
+  }
+
+  /* ── Demo data ─────────────────────────────────────────────── */
+  function demoResult(q, isIfrs) {
+    if (isIfrs) {
+      return {
+        answer: `질의: "${q}"\n\n관련 IFRS 기준서를 분석한 결과를 요약합니다. (데모 데이터)\n\n- 핵심 원칙과 인식 시점\n- 측정 방법 및 공시 요구사항\n- 실무 적용 시 유의사항`,
+        ifrs_references: [
+          { standard: 'IFRS 15', paragraph: '문단 22-30',
+            title: '수행의무의 식별', kasb_url: '#',
+            summary: '계약 개시 시점에 고객에게 약속한 재화나 용역을 평가하여 수행의무를 식별합니다.' },
+          { standard: 'IFRS 15', paragraph: '문단 31-45',
+            title: '거래가격의 산정', kasb_url: '#',
+            summary: '변동대가, 비현금 대가, 유의적 금융요소 등을 고려하여 거래가격을 결정합니다.' },
+        ],
+        disclosures: [
+          { corp_name: '삼성전자',  report_nm: '사업보고서',   rcept_dt: '20240315', score: 0.92, dart_url: '#' },
+          { corp_name: 'SK하이닉스', report_nm: '분기보고서', rcept_dt: '20240514', score: 0.84, dart_url: '#' },
+        ],
+      };
+    }
+    return {
+      answer: `질의: "${q}"\n\n수집된 공시 데이터를 바탕으로 다음과 같이 분석합니다. (데모 데이터)\n\n• 관련 공시 4건이 확인되었습니다.\n• 최근 2년간 동일 키워드의 공시 빈도가 증가하는 추세입니다.\n• 아래 표에서 상세 내역을 확인하세요.`,
+      disclosures: [
+        { corp_name: '셀트리온',       report_nm: '주요사항보고서(감사보고서제출)', rcept_dt: '20240328', score: 0.91, dart_url: '#' },
+        { corp_name: '한진칼',          report_nm: '전환사채권발행결정',             rcept_dt: '20240212', score: 0.87, dart_url: '#' },
+        { corp_name: '두산에너빌리티',  report_nm: '유상증자결정',                   rcept_dt: '20240105', score: 0.82, dart_url: '#' },
+        { corp_name: 'LG디스플레이',    report_nm: '특수관계자거래',                 rcept_dt: '20231221', score: 0.79, dart_url: '#' },
+      ],
+    };
+  }
+
+  /* ── Render ────────────────────────────────────────────────── */
+  function renderResults(data, debateMode = false) {
+    const discs  = data.disclosures || [];
+    const isIfrs = currentMode === 'ifrs';
+    _lastDisclosures = discs;
+    _lastQueryData   = data;
+
+    if (!data.answer && discs.length === 0) {
+      setContent(`
+        <div class="empty-state">
+          <div class="empty-icon">·</div>
+          <div class="empty-title">관련 공시를 찾지 못했습니다</div>
+          <div class="empty-desc">검색어를 다르게 입력해 보세요.</div>
+        </div>`);
+      closePanel();
+      return;
+    }
+
+    const labelClass = debateMode ? 'debate' : (isIfrs ? 'ifrs' : '');
+    const labelText  = debateMode ? '반박 분석' : (isIfrs ? 'IFRS 분석' : 'AI 분석');
+    const debateBtn  = !debateMode
+      ? `<button class="btn-debate" onclick="doSearch(true)">🔴 반박해줘</button>`
+      : '';
+    const relatedBtn = isIfrs
+      ? `<button class="btn-related-disc" onclick="openDiscModal()">관련 공시 ${discs.length}건 보기 →</button>`
+      : '';
+    const footerInner = debateBtn + relatedBtn;
+    const answerFooter = footerInner
+      ? `<div class="answer-footer">${footerInner}</div>`
+      : '';
+
+    const answerHtml = data.answer ? `
+      <div class="answer-card">
+        <div class="answer-label ${labelClass}">
+          <span class="dot"></span>
+          ${labelText}
+        </div>
+        <div class="answer-text">${esc(data.answer)}</div>
+        ${answerFooter}
+      </div>` : '';
+
+    const tableHtml = (!isIfrs && discs.length > 0) ? buildDiscTable(discs) : '';
+    setContent(answerHtml + tableHtml);
+
+    if (isIfrs && data.ifrs_references && data.ifrs_references.length > 0) {
+      renderIFRSPanel(data.ifrs_references);
+    } else if (isIfrs) {
+      document.getElementById('ifrs-refs').innerHTML =
+        '<div class="ifrs-refs-empty">관련 기준서 조문을<br>찾지 못했습니다.</div>';
+      openPanel();
+    } else {
+      closePanel();
+    }
+  }
+
+  function renderIFRSPanel(refs) {
+    const html = refs.map(ref => `
+      <div class="ifrs-ref-card">
+        <div class="ifrs-ref-tag">${esc(ref.standard)} · ${esc(ref.paragraph)}</div>
+        <div class="ifrs-ref-title">${esc(ref.title)}</div>
+        <div class="ifrs-ref-summary">${esc(ref.summary)}</div>
+        <a href="${esc(ref.kasb_url)}" target="_blank" rel="noopener" class="ifrs-ref-link">
+          원문 보기 ↗
+        </a>
+      </div>`).join('');
+    document.getElementById('ifrs-refs').innerHTML = html;
+    openPanel();
+  }
+
+  function buildDiscTable(discs) {
+    const view = document.body.getAttribute('data-view') || 'table';
+    if (view === 'cards') return buildDiscCards(discs);
+    return `
+      <div class="result-header">
+        <h2>관련 공시</h2>
+        <span class="result-count">${discs.length}건</span>
+      </div>
+      <div class="table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>회사명</th><th>공시유형</th><th>날짜</th><th>유사도</th><th>원문</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${discs.map(d => {
+              const p = Math.round((d.score || 0) * 100);
+              return `
+                <tr>
+                  <td class="td-corp">${esc(d.corp_name)}</td>
+                  <td class="td-report">${esc(d.report_nm)}</td>
+                  <td class="td-date">${fmtDate8(d.rcept_dt)}</td>
+                  <td><span class="score"><span class="score-bar" style="--w:${p}%"></span>${p}%</span></td>
+                  <td class="td-link"><a href="${esc(d.dart_url)}" target="_blank" rel="noopener">원문</a></td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function buildDiscCards(discs) {
+    return `
+      <div class="result-header">
+        <h2>관련 공시</h2>
+        <span class="result-count">${discs.length}건</span>
+      </div>
+      <div class="disc-cards">
+        ${discs.map(d => {
+          const p = Math.round((d.score || 0) * 100);
+          return `
+            <article class="disc-card">
+              <header>
+                <span class="corp">${esc(d.corp_name)}</span>
+                <span class="date">${fmtDate8(d.rcept_dt)}</span>
+              </header>
+              <div class="report">${esc(d.report_nm)}</div>
+              <footer>
+                <span class="score"><span class="score-bar" style="--w:${p}%"></span>${p}%</span>
+                <a class="card-link" href="${esc(d.dart_url)}" target="_blank" rel="noopener">원문 ↗</a>
+              </footer>
+            </article>`;
+        }).join('')}
+      </div>`;
+  }
+
+  /* ── Modal ─────────────────────────────────────────────────── */
+  function openDiscModal() {
+    const body = document.getElementById('modal-body');
+    const sub  = document.getElementById('modal-sub');
+    if (!_lastDisclosures.length) {
+      body.innerHTML = '<p style="text-align:center;padding:32px;color:var(--muted)">관련 공시가 없습니다.</p>';
+    } else {
+      sub.textContent  = `${_lastDisclosures.length}건의 유사 공시`;
+      body.innerHTML   = buildDiscTable(_lastDisclosures);
+    }
+    document.getElementById('disc-modal').classList.add('open');
+  }
+  function closeDiscModal() { document.getElementById('disc-modal').classList.remove('open'); }
+  document.getElementById('disc-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDiscModal();
+  });
+
+  /* ── Utils ─────────────────────────────────────────────────── */
+  function setContent(html) { document.getElementById('content').innerHTML = html; }
+
+  function loader(isIfrs) {
+    const cls = isIfrs ? 'amber' : '';
+    const msg = isIfrs ? 'IFRS 기준서와 공시 데이터를 분석 중…' : '공시 데이터를 분석 중…';
+    return `<div class="loader"><div class="spinner ${cls}"></div>${msg}</div>`;
+  }
+
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fmtDate8(d) {
+    if (!d || d.length !== 8) return d || '';
+    return `${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6,8)}`;
+  }
+  function fmtDate(s) {
+    if (!s) return '—';
+    const d = new Date(s);
+    if (isNaN(d)) return String(s).slice(0, 10);
+    return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function fmt(n) { return (n == null) ? '—' : Number(n).toLocaleString('ko-KR'); }
+
+  /* ════════════════════════════════════════════════════════════
+     TWEAKS PANEL — vanilla JS
+  ════════════════════════════════════════════════════════════ */
+  const _twkState = { mood: 'minimal', density: 'cozy', view: 'table' };
+
+  function setTweak(key, val) {
+    _twkState[key] = val;
+    document.body.setAttribute(`data-${key}`, val);
+
+    // Update segmented controls
+    const seg = document.getElementById(`seg-${key}`);
+    if (seg) {
+      seg.querySelectorAll('button').forEach(btn => {
+        const isActive = btn.textContent.trim() === val;
+        btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+      });
+      updateThumb(key);
+    }
+
+    // Re-render results if view changed
+    if (key === 'view' && _lastQueryData) {
+      renderResults(_lastQueryData);
+    }
+  }
+
+  function updateThumb(key) {
+    const seg   = document.getElementById(`seg-${key}`);
+    const thumb = document.getElementById(`thumb-${key}`);
+    if (!seg || !thumb) return;
+    const btns  = seg.querySelectorAll('button');
+    const n     = btns.length;
+    let idx     = 0;
+    btns.forEach((btn, i) => { if (btn.getAttribute('aria-checked') === 'true') idx = i; });
+    thumb.style.left  = `calc(2px + ${idx} * (100% - 4px) / ${n})`;
+    thumb.style.width = `calc((100% - 4px) / ${n})`;
+  }
+
+  function tweaksToggle() {
+    const panel  = document.getElementById('twk-panel');
+    const toggle = document.getElementById('twk-toggle');
+    const isOpen = panel.classList.toggle('open');
+    toggle.classList.toggle('panel-open', isOpen);
+  }
+
+  // Drag for tweaks panel
+  (function() {
+    const hd     = document.getElementById('twk-hd');
+    const panel  = document.getElementById('twk-panel');
+    if (!hd || !panel) return;
+    let startX, startY, startRight, startBottom;
+    hd.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('twk-x')) return;
+      const r = panel.getBoundingClientRect();
+      startX      = e.clientX;
+      startY      = e.clientY;
+      startRight  = window.innerWidth - r.right;
+      startBottom = window.innerHeight - r.bottom;
+      const move = (ev) => {
+        const newRight  = Math.max(8, startRight  - (ev.clientX - startX));
+        const newBottom = Math.max(8, startBottom - (ev.clientY - startY));
+        panel.style.right  = newRight  + 'px';
+        panel.style.bottom = newBottom + 'px';
+      };
+      const up = () => {
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    });
+  })();
+
+  // Initialize thumb positions on load
+  ['mood', 'density', 'view'].forEach(updateThumb);
+
+  // Clean up temp file (only exists during dev)
+</script>
+</body>
+</html>

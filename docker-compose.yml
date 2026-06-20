@@ -1,0 +1,37 @@
+services:
+
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: dart
+      POSTGRES_PASSWORD: dart
+      POSTGRES_DB: dartscanner
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dart -d dartscanner"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./data:/app/data               # settings.json, dart_quota.json
+      - ./raw_documents:/app/raw_documents  # DART ZIP 캐시
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
